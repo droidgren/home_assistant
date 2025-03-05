@@ -41,13 +41,13 @@ blueprint:
         entity:
           domain: light      
     enable_toggle_mode:
-      name: (Optional) Enable Toggle Mode
-      description: "If enabled, the On/Off buttons will toggle the light state instead of fixed on/off actions. If enabled 'Force brightness at turn on' setting will not work"
+      name: (Optional) Enable Toggle Mode (left+right)
+      description: "If enabled, the On/Off buttons will toggle the light state instead of fixed on/off actions. "
       default: false
       selector:
         boolean: {}          
     enable_brightness_on_left:
-      name: (Optional) Enable Brightness On Left Button
+      name: (Optional) Force brightness value at turn on (left)
       description: "Enable setting a fixed brightness level for the left button."
       default: false
       selector:
@@ -186,6 +186,16 @@ actions:
           - choose:
               - conditions:
                   - condition: template
+                    value_template: '{{ enable_toggle_mode and enable_brightness_on_left }}'
+                sequence:
+                  - service: light.toggle
+                    target:
+                      entity_id: !input target_light_left
+                    data:
+                      brightness_pct: '{{ brightness_on_left }}'          
+          - choose:
+              - conditions:
+                  - condition: template
                     value_template: '{{ enable_toggle_mode }}'
                 sequence:
                   - service: light.toggle
@@ -212,6 +222,16 @@ actions:
           - choose:
               - conditions:
                   - condition: template
+                    value_template: '{{ enable_toggle_mode and enable_brightness_on_left }}'
+                sequence:
+                  - service: light.toggle
+                    target:
+                      entity_id: !input target_light_left
+                    data:
+                      brightness_pct: '{{ brightness_on_left }}'          
+          - choose:
+              - conditions:
+                  - condition: template
                     value_template: '{{ enable_toggle_mode }}'
                 sequence:
                   - service: light.toggle
@@ -227,6 +247,15 @@ actions:
             id: on_right
         sequence:
           - choose:
+              - conditions:
+                  - condition: template
+                    value_template: '{{ enable_toggle_mode and enable_brightness_on_right }}'
+                sequence:
+                  - service: light.toggle
+                    target:
+                      entity_id: !input target_light_right
+                    data:
+                      brightness_pct: '{{ brightness_on_right }}'       
               - conditions:
                   - condition: template
                     value_template: '{{ enable_toggle_mode }}'
@@ -252,6 +281,16 @@ actions:
           - condition: trigger
             id: off_right
         sequence:
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: '{{ enable_toggle_mode and enable_brightness_on_right }}'
+                sequence:
+                  - service: light.toggle
+                    target:
+                      entity_id: !input target_light_right
+                    data:
+                      brightness_pct: '{{ brightness_on_right }}'  
           - choose:
               - conditions:
                   - condition: template
