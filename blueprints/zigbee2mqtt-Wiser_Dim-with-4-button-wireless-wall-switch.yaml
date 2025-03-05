@@ -1,0 +1,343 @@
+blueprint:
+  name: Wiser 4-Button Wireless Wall Switch (Zigbee2MQTT)
+  description: |
+    # Wiser Dim with 4-Button Wireless Wall Switch (Zigbee2MQTT)
+    Provides integration and control for the Schnider Wiser Dim with 4-Button Wireless Wall Switch.
+    
+    Allows for turning lights on/off, adjusting brightness, toggle mode, fixed brightness.
+    
+    ✅ Tested and works with Zigbe2MQTT 2.x
+    ℹ️ Version 2025.03.04
+    
+    Works with Schneider [Electric WDE002906/WDE002924](https://www.zigbee2mqtt.io/devices/WDE002906_MEG5001-0300.html)
+
+  source_url: https://github.com/droidgren/home_assistant/blueprints/zigbee2mqtt-Wiser_Dim-with-4-button-wireless-wall-switch.yaml
+  author: droidgren
+  domain: automation
+  input:
+    mqtt_device:
+      name: Wiser Wall Switch 
+      description: 'Wall switch to be used to control the lights. 
+      Must be a Wiser Exxact Battery-powered Wireless Switch 4 button
+      Model number: WDE002924 / MEG5001-0300'
+      default: []
+      selector:
+        device:
+          filter:
+            - integration: mqtt
+              manufacturer: Schneider Electric
+              model: Wiser wireless switch 1-gang or 2-gang
+          multiple: false
+    target_light_left:
+      name: Light(s) for left button
+      description: Light(s) to be controlled by the left button
+      selector:
+        entity:
+          domain: light   
+    target_light_right:
+      name: Light(s) for right button
+      description: Light(s) to be controlled by the right button
+      selector:
+        entity:
+          domain: light      
+    enable_toggle_mode:
+      name: (Optional) Enable Toggle Mode
+      description: "If enabled, the On/Off buttons will toggle the light state instead of fixed on/off actions. If enabled 'Force brightness at turn on' setting will not work"
+      default: false
+      selector:
+        boolean: {}          
+    enable_brightness_on_left:
+      name: (Optional) Enable Brightness On Left Button
+      description: "Enable setting a fixed brightness level for the left button."
+      default: false
+      selector:
+        boolean: {}
+    brightness_on_left:
+      name: (Optional) On Brightness Left Button
+      description: "Brightness level in percentage when lights are turned on with the left button single press."
+      default: 75
+      selector:
+        number:
+          min: 1
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+    enable_brightness_on_right:
+      name: (Optional) Force brightness value at turn on (right)
+      description: "Enable setting a fixed brightness level for the right button."
+      default: false
+      selector:
+        boolean: {}
+    brightness_on_right:
+      name: (Optional) On Brightness Right Button
+      description: "Brightness level in percentage when lights are turned on with the right button single press."
+      default: 75
+      selector:
+        number:
+          min: 1
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+    brightness_step:
+      name: (Optional) Brightness Step
+      description: "Brightness adjustment step (slider percentage, 1-100%)."
+      default: 10
+      selector:
+        number:
+          min: 1
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+    delay_ms:
+      name: (Optional) Delay (ms) Between Steps
+      description: "Delay in milliseconds between brightness adjustment steps."
+      default: 300
+      selector:
+        number:
+          min: 100
+          max: 2000
+          step: 100
+          unit_of_measurement: "ms"
+    transition_seconds:
+      name: (Optional) Transition Time (Seconds)
+      description: "The duration in seconds for the light transition effect."
+      default: 1
+      selector:
+        number:
+          min: 0.1
+          max: 9999
+          step: 0.1
+          unit_of_measurement: "s"          
+variables:
+  brightness_step: !input 'brightness_step'
+  enable_brightness_on_left: !input 'enable_brightness_on_left'
+  enable_brightness_on_right: !input 'enable_brightness_on_right'
+  brightness_on_left: !input 'brightness_on_left'
+  brightness_on_right: !input 'brightness_on_right'
+  enable_toggle_mode: !input enable_toggle_mode
+
+triggers:
+  - domain: mqtt
+    device_id: !input mqtt_device
+    type: action
+    subtype: on_left
+    trigger: device
+    id: on_left
+  - domain: mqtt
+    device_id: !input mqtt_device
+    type: action
+    subtype: off_left
+    trigger: device
+    id: off_left
+  - domain: mqtt
+    device_id: !input mqtt_device
+    type: action
+    subtype: on_right
+    trigger: device
+    id: on_right
+  - domain: mqtt
+    device_id: !input mqtt_device
+    type: action
+    subtype: off_right
+    trigger: device
+    id: off_right
+  - domain: mqtt
+    device_id: !input mqtt_device
+    type: action
+    subtype: brightness_move_up_right
+    trigger: device
+    id: dim_up_right
+  - domain: mqtt
+    device_id: !input mqtt_device
+    type: action
+    subtype: brightness_move_down_right
+    trigger: device
+    id: dim_down_right
+  - domain: mqtt
+    device_id: !input mqtt_device
+    type: action
+    subtype: brightness_move_up_left
+    trigger: device
+    id: dim_up_left
+  - domain: mqtt
+    device_id: !input mqtt_device
+    type: action
+    subtype: brightness_move_down_left
+    trigger: device
+    id: dim_down_left
+  - domain: mqtt
+    device_id: !input mqtt_device
+    type: action
+    subtype: brightness_stop_right
+    trigger: device
+    id: dim_stop_right
+  - domain: mqtt
+    device_id: !input mqtt_device
+    type: action
+    subtype: brightness_stop_left
+    trigger: device
+    id: dim_stop_left
+actions:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: on_left
+        sequence:
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: '{{ enable_toggle_mode }}'
+                sequence:
+                  - service: light.toggle
+                    target:
+                      entity_id: !input target_light_left
+              - conditions:
+                  - condition: template
+                    value_template: '{{ enable_brightness_on_left }}'
+                sequence:
+                  - service: light.turn_on
+                    target:
+                      entity_id: !input target_light_left
+                    data:
+                      brightness_pct: '{{ brightness_on_left }}'
+            default:
+              - service: light.turn_on
+                target:
+                  entity_id: !input target_light_left
+
+      - conditions:
+          - condition: trigger
+            id: off_left
+        sequence:
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: '{{ enable_toggle_mode }}'
+                sequence:
+                  - service: light.toggle
+                    target:
+                      entity_id: !input target_light_left
+            default:
+              - service: light.turn_off
+                target:
+                  entity_id: !input target_light_left
+
+      - conditions:
+          - condition: trigger
+            id: on_right
+        sequence:
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: '{{ enable_toggle_mode }}'
+                sequence:
+                  - service: light.toggle
+                    target:
+                      entity_id: !input target_light_right
+              - conditions:
+                  - condition: template
+                    value_template: '{{ enable_brightness_on_right }}'
+                sequence:
+                  - service: light.turn_on
+                    target:
+                      entity_id: !input target_light_right
+                    data:
+                      brightness_pct: '{{ brightness_on_right }}'
+            default:
+              - service: light.turn_on
+                target:
+                  entity_id: !input target_light_right
+
+      - conditions:
+          - condition: trigger
+            id: off_right
+        sequence:
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: '{{ enable_toggle_mode }}'
+                sequence:
+                  - service: light.toggle
+                    target:
+                      entity_id: !input target_light_right
+            default:
+              - service: light.turn_off
+                target:
+                  entity_id: !input target_light_right
+      - conditions:
+          - condition: trigger
+            id:
+              - dim_up_right
+        sequence:
+          - repeat:
+              sequence:
+                - target:
+                    entity_id: !input target_light_right
+                  data:
+                    brightness_step_pct: "{{ brightness_step | int}}"
+                    transition: !input transition_seconds
+                  action: light.turn_on
+                - delay:
+                    milliseconds: !input delay_ms
+              until:
+                - condition: trigger
+                  id:
+                    - dim_stop_right
+      - conditions:
+          - condition: trigger
+            id:
+              - dim_down_right
+        sequence:
+          - repeat:
+              sequence:
+                - target:
+                    entity_id: !input target_light_right
+                  data:
+                    brightness_step_pct: "-{{ brightness_step | int}}"
+                    transition: !input transition_seconds
+                  action: light.turn_on
+                - delay:
+                    milliseconds: !input delay_ms
+              until:
+                - condition: trigger
+                  id:
+                    - dim_stop_right
+      - conditions:
+          - condition: trigger
+            id:
+              - dim_up_left
+        sequence:
+          - repeat:
+              sequence:
+                - target:
+                    entity_id: !input target_light_left
+                  data:
+                    brightness_step_pct: "{{ brightness_step | int}}"
+                    transition: !input transition_seconds
+                  action: light.turn_on
+                - delay:
+                    milliseconds: !input delay_ms
+              until:
+                - condition: trigger
+                  id:
+                    - dim_stop_left
+      - conditions:
+          - condition: trigger
+            id:
+              - dim_down_left
+        sequence:
+          - repeat:
+              sequence:
+                - target:
+                    entity_id: !input target_light_left
+                  data:
+                    brightness_step_pct: "-{{ brightness_step | int}}"
+                    transition: !input transition_seconds
+                  action: light.turn_on
+                - delay:
+                    milliseconds: !input delay_ms
+              until:
+                - condition: trigger
+                  id:
+                    - dim_stop_left                    
+mode: restart
