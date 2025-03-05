@@ -11,7 +11,7 @@ blueprint:
     
     Works with Schneider [Electric WDE002906/WDE002924](https://www.zigbee2mqtt.io/devices/WDE002906_MEG5001-0300.html)
 
-  source_url: https://github.com/droidgren/home_assistant/blueprints/zigbee2mqtt-Wiser_Dim-with-4-button-wireless-wall-switch.yaml
+  source_url: https://github.com/droidgren/home_assistant/blob/main/blueprints/zigbee2mqtt-Wiser_Dim-with-4-button-wireless-wall-switch.yaml
   author: droidgren
   domain: automation
   input:
