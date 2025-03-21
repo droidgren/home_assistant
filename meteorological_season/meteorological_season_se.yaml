@@ -75,7 +75,7 @@ template:
           {% if is_state('sensor.meteorological_season', 'Vår') %}
             mdi:flower
           {% elif is_state('sensor.meteorological_season', 'Sommar') %}
-            mdi:sun-wireless
+            mdi:sunglasses
           {% elif is_state('sensor.meteorological_season', 'Höst') %}
             mdi:leaf
           {% elif is_state('sensor.meteorological_season', 'Vinter') %}
