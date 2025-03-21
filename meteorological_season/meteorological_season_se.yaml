@@ -17,7 +17,7 @@
 #Sommaren anländer om det råder sommartemperatur fem dygn i följd. 
 #Sommartemperatur är det då dygnsmedeltemperaturen är 10,0°C eller högre, men ännu inte fem dygn i följd. 
 #Sommarens ankomstdatum avser det första dygnet av fem med sommartemperaturer.
-#Våren måste ha ankommit innan sommaren inträffar
+
 
 #Hösten anländer om det råder hösttemperatur fem dygn i följd. 
 #Hösttemperatur är det då dygnsmedeltemperaturen är under 10,0°C, men ännu inte fem dygn i följd. Höstens ankomstdatum avser det första dygnet av fem med hösttemperaturer. 
@@ -108,15 +108,29 @@ automation:
     trigger:
       - platform: time
         at: "00:01:00"  # Kör strax efter midnatt.
+      
     action:
+      - choose:
+          - conditions: "{{ states('sensor.24_hour_average_temperature') | float(none) }}"       # Om temperaturdata saknas, logga och avbryt
+            sequence:
+              - service: logbook.log
+                data:
+                  name: Meteorologisk årstid
+                  message: "Temperaturdata saknas. Kan inte beräkna årstid."
+                  domain: sensor
+              - service: system_log.write
+                data:
+                  level: warning
+                  message: "Meteorologisk årstid: Temperaturdata är otillgänglig, beräkning avbruten."
+              - stop: "Temperaturdata otillgänglig, avbryter automationen"
+
       - variables:  # Definiera variabler för temperatur och datumvillkor
-          average_temp: "{{ states('sensor.24_hour_average_temperature') | float('unavailable') }}"
           is_spring_temp: "{{ average_temp > 0.0 and average_temp < 10.0 }}"
           is_summer_temp: "{{ average_temp >= 10.0 }}"
           is_autumn_temp: "{{ average_temp < 10.0 and average_temp > 0.0 }}"
           is_winter_temp: "{{ average_temp <= 0.0 }}"
-          spring_date_ok: "{{ now().month >= 2 and now().day >= 15 or now().month > 2 and now().month <=7 }}" #Datum ligger mellan den 15 februari och slutet av juli.
-          autumn_date_ok: "{{ now().month >= 8 or now().month <= 2 and now().day <= 14 }}" #Datum ligger mellan augusti och den 14 februari. 
+          spring_date_ok: "{{ (now().month == 2 and now().day >= 15) or (now().month > 2 and now().month <= 7) }}" #Datum ligger mellan den 15 februari och slutet av juli. 
+          autumn_date_ok: "{{ (now().month >= 8) or (now().month == 2 and now().day <= 14) }}" #Datum ligger mellan augusti och den 14 februari. 
 
       - choose:
           # Vår
@@ -132,7 +146,7 @@ automation:
                   entity_id: counter.spring_days
 
           # Sommar
-          - conditions: "{{ is_summer_temp and is_state('sensor.meteorological_season', 'Vår') }}"  #Våren måste ha ankommit innan sommaren inträffar
+          - conditions: "{{ is_summer_temp }}"  #Våren måste ha ankommit innan sommaren inträffar
             sequence:
               - service: counter.increment
                 target:
@@ -166,11 +180,4 @@ automation:
               - service: counter.reset
                 target:
                   entity_id: counter.winter_days
-          # Hantera saknad temperaturdata
-          - conditions: "{{ average_temp == 'unavailable' }}"
-            sequence:
-              - service: logbook.log
-                data:
-                  name: Meteorologisk årstid
-                  message: Temperaturdata är för närvarande inte tillgänglig.
     mode: single
