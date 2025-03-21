@@ -27,7 +27,7 @@
 sensor:
   - platform: statistics
     name: "24 Hour Average Temperature"
-    entity_id: sensor.utomhus_temp  # Byt ut mot DIN temperatursensor
+    entity_id: sensor.genomsnittlig_utomhus_temp  # Byt ut mot DIN temperatursensor
     unique_id: meteorological_season_24_avg_temp_sensor
     state_characteristic: mean
     max_age:
