@@ -108,10 +108,13 @@ automation:
     trigger:
       - platform: time
         at: "00:01:00"  # Kör strax efter midnatt.
-      
+
     action:
+      - variables:
+          average_temp: "{{ states('sensor.24_hour_average_temperature') | float(none) }}"
+
       - choose:
-          - conditions: "{{ states('sensor.24_hour_average_temperature') | float(none) }}"       # Om temperaturdata saknas, logga och avbryt
+          - conditions: "{{ average_temp is none }}"          # Om temperaturdata saknas, logga och avbryt
             sequence:
               - service: logbook.log
                 data:
