@@ -77,26 +77,26 @@ template:
             Ej beräknad
           {% endif %}
         icon: >
-          {% if is_state('sensor.meteorological_season', 'Vår') %}
+          {% if this.state == 'Vår' %}
             mdi:flower
-          {% elif is_state('sensor.meteorological_season', 'Sommar') %}
+          {% elif this.state == 'Sommar' %}
             mdi:sunglasses
-          {% elif is_state('sensor.meteorological_season', 'Höst') %}
+          {% elif this.state == 'Höst' %}
             mdi:leaf
-          {% elif is_state('sensor.meteorological_season', 'Vinter') %}
+          {% elif this.state == 'Vinter' %}
             mdi:snowflake
           {% else %}
             mdi:weather-partly-cloudy
           {% endif %}
         attributes:
           arrival_date: >
-            {% if is_state('sensor.meteorological_season', 'Vår') %}
+            {% if this.state == 'Vår' %}
               {{ (now() - timedelta(days = states('counter.spring_days') | int(0) - 1)).strftime('%Y-%m-%d') }}
-            {% elif is_state('sensor.meteorological_season', 'Sommar') %}
+            {% elif this.state == 'Sommar' %}
               {{ (now() - timedelta(days = states('counter.summer_days') | int(0) - 1)).strftime('%Y-%m-%d') }}
-            {% elif is_state('sensor.meteorological_season', 'Höst') %}
+            {% elif this.state == 'Höst' %}
               {{ (now() - timedelta(days = states('counter.autumn_days') | int(0) - 1)).strftime('%Y-%m-%d') }}
-            {% elif is_state('sensor.meteorological_season', 'Vinter') %}
+            {% elif this.state == 'Vinter' %}
               {{ (now() - timedelta(days = states('counter.winter_days') | int(0) - 1)).strftime('%Y-%m-%d') }}
             {% else %}
               Unknown
@@ -108,11 +108,10 @@ automation:
     trigger:
       - platform: time
         at: "00:01:00"  # Kör strax efter midnatt.
-
     action:
       - variables:
           average_temp: "{{ states('sensor.24_hour_average_temperature') | float(none) }}"
-
+          
       - choose:
           - conditions: "{{ average_temp is none }}"          # Om temperaturdata saknas, logga och avbryt
             sequence:
@@ -135,6 +134,8 @@ automation:
           spring_date_ok: "{{ (now().month == 2 and now().day >= 15) or (now().month > 2 and now().month <= 7) }}" #Datum ligger mellan den 15 februari och slutet av juli. 
           autumn_date_ok: "{{ (now().month >= 8) or (now().month == 2 and now().day <= 14) }}" #Datum ligger mellan augusti och den 14 februari. 
 
+
+
       - choose:
           # Vår
           - conditions: "{{ spring_date_ok and is_spring_temp }}"
@@ -149,7 +150,7 @@ automation:
                   entity_id: counter.spring_days
 
           # Sommar
-          - conditions: "{{ is_summer_temp }}"  #Våren måste ha ankommit innan sommaren inträffar
+          - conditions: "{{ is_summer_temp }}"  
             sequence:
               - service: counter.increment
                 target:
