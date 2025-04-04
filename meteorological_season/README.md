@@ -4,7 +4,7 @@ Denna yaml-fil beräknar den Meterologiska årstiden enligt SMHIs defintion (ned
  
 ## Installation
 1. Ladda ner och kopiera  (meteorological_season_se.yaml) till mappen /homeassistant/packages   (om du ej har mappen packages får du skapa den först).
-2. Lägg in följande två rader configuration.yaml (eller uppdatera befintlig rad)
+2. Se till configuration.yaml har denna konfiguration för att kunna läsa in filen , om "homeassistant:" redan finns lägger du till packages-raden
 
 ```yaml
 homeassistant:
