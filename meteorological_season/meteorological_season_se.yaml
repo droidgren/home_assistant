@@ -2,44 +2,11 @@
 #  
 #  Denna yaml-fil beräknar den Meterologiska årstiden enligt SMHIs defintion (nedan) baserat på temperaturen där du bor.
 #  
-#  Installation
-#  1. Ladda ner och kopiera denna yaml fil  (meteorological_season_se.yaml) till mappen /homeassistant/packages   (om du ej har mappen packages får du skapa den först)
-#  2.  Lägg in följande två rader configuration.yaml (eller uppdatera befintlig rad)
-#
-#    homeassistant:
-#      packages: !include_dir_named packages
-#
-#  3. Spara och starta om Home Assistant
+#  Installation kopiera denna fil till din packages mapp och uppdatera sensorn nedan
+#  
 
-
-
-
-
-
-
-#Meterologiska årstider
-#Defintioner https://www.smhi.se/vader/observationer/arstidskarta
-#https://www.smhi.se/vader/observationer/ankomstkarta/
-
-#Vintern anländer om det råder vintertemperatur fem dygn i följd. 
-#Vintertemperatur är det då dygnsmedeltemperaturen är 0,0°C eller lägre, men ännu inte fem dygn i följd. 
-#Vinterns ankomstdatum avser det första dygnet av fem med vintertemperaturer.
-
-#Våren anländer om det råder vårtemperatur sju dygn i följd. 
-#Vårtemperatur är det då dygnsmedeltemperaturen är över 0,0°C, men ännu inte sju dygn i följd. Vårens ankomstdatum avser det första dygnet av sju med vårtemperaturer. 
-#Den 15 februari har satts som det tidigaste tillåtna datumet för vårens ankomst. 
-#Senast möjliga datum för vårens ankomst är den 31 juli.
-
-#Sommaren anländer om det råder sommartemperatur fem dygn i följd. 
-#Sommartemperatur är det då dygnsmedeltemperaturen är 10,0°C eller högre, men ännu inte fem dygn i följd. 
-#Sommarens ankomstdatum avser det första dygnet av fem med sommartemperaturer.
-
-
-#Hösten anländer om det råder hösttemperatur fem dygn i följd. 
-#Hösttemperatur är det då dygnsmedeltemperaturen är under 10,0°C, men ännu inte fem dygn i följd. Höstens ankomstdatum avser det första dygnet av fem med hösttemperaturer. 
-#Den 1 augusti har satts som det tidigaste tillåtna datumet för höstens ankomst. 
-#Senast möjliga datum för höstens ankomst är den 14 februari.
-
+#Defintioner SMHI https://www.smhi.se/vader/observationer/arstidskarta
+#Nuvarande årstid https://www.smhi.se/vader/observationer/ankomstkarta/
 
 sensor:
   - platform: statistics
