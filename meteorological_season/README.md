@@ -1,7 +1,11 @@
 # Meterologisk årstid v 1.0 
  
 Denna yaml-fil beräknar den Meterologiska årstiden enligt SMHIs defintion (nedan) baserat på temperaturen där du bor.
- 
+
+<img src="https://github.com/droidgren/home_assistant/blob/main/meteorological_season/brick-card.png">
+<img src="https://github.com/droidgren/home_assistant/blob/main/meteorological_season/entitiy.png">
+
+
 ## Installation
 1. Ladda ner och kopiera  (meteorological_season_se.yaml) till mappen /homeassistant/packages   (om du ej har mappen packages får du skapa den först).
 2. Se till configuration.yaml har denna konfiguration för att kunna läsa in filen , om "homeassistant:" redan finns lägger du till packages-raden
@@ -22,6 +26,10 @@ homeassistant:
 2. Ange datumet i entiten input_datetime.spring_arrival_date (tex 2025-02-21 )
 3. Slå på entiteten input_boolean.spring_date_set
 4. Sätt räknaren counter.spring_days till 7
+
+### Övrigt
+- Observera att sensorn endast uppdateras en gång per dygn
+- Som attribut till Meterologisk årstid finns även förra dagens genomsnittstemp, samt historik för tidgare datum då årstider inträffade. 
 
 ## Defintioner (från SMHI) 
 ### Vinter
