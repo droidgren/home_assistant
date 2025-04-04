@@ -14,8 +14,14 @@ homeassistant:
 
 3.  Uppdatera följande rad "entity_id: sensor.genomsnittlig_utomhus_temp"  med din temperatursensor
 4.  Spara och starta om Home Assistant.
-5.  Nu kommer 
+5.  Nu kommer ett antal räknare och datum entiteter att skapas samt en sensor och automation
+6.  Sensorn "Meterologisk årstid" kommer nu att ange aktuell årstid och datum när detta inträffade.  Observera att det tar 5-7 dagar (beroende på årstid) innan detta kan fastställas.
 
+###  Uppdatera årstid i efterhand
+1. Om det tex är vår, kolla vilket datum detta inträffade på följande sida: https://www.smhi.se/vader/observationer/ankomstkarta/
+2. Ange datumet i entiten input_datetime.spring_arrival_date (tex 2025-02-21 )
+3. Slå på entiteten input_boolean.spring_date_set
+4. Sätt räknaren counter.spring_days till 7
 
 ## Defintioner (från SMHI) 
 ### Vinter
