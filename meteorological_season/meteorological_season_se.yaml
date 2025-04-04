@@ -113,7 +113,7 @@ template:
             {% endif %}    
           Förra dygnets medeltemp: "{{ states('sensor.24_hour_average_temperature') | float(0) }}"
           Senast uppdaterad: "{{ now().strftime('%Y-%m-%d %H:%M') }}"    
-          Historik: "__________________"
+          Historik: ""
           Vinterns ankomstdatum: "{{ states('input_datetime.winter_arrival_date') if (this.state != 'Vinter' and is_state('input_boolean.winter_date_set', 'on')) else '' }}"
           Vårens ankomstdatum: "{{ states('input_datetime.spring_arrival_date') if (this.state != 'Vår' and is_state('input_boolean.spring_date_set', 'on')) else '' }}"
           Sommarens ankomstdatum: "{{ states('input_datetime.summer_arrival_date') if (this.state != 'Sommar' and is_state('input_boolean.summer_date_set', 'on')) else '' }}"
