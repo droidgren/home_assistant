@@ -4,6 +4,7 @@
 #
 #Meterologiska årstider
 #Defintioner https://www.smhi.se/vader/observationer/arstidskarta
+#https://www.smhi.se/vader/observationer/ankomstkarta/
 
 #Vintern anländer om det råder vintertemperatur fem dygn i följd. 
 #Vintertemperatur är det då dygnsmedeltemperaturen är 0,0°C eller lägre, men ännu inte fem dygn i följd. 
@@ -24,16 +25,47 @@
 #Den 1 augusti har satts som det tidigaste tillåtna datumet för höstens ankomst. 
 #Senast möjliga datum för höstens ankomst är den 14 februari.
 
+
 sensor:
   - platform: statistics
     name: "24 Hour Average Temperature"
-    entity_id: sensor.genomsnittlig_utomhus_temp  # Byt ut mot DIN temperatursensor
+    entity_id: sensor.genomsnittlig_utomhus_temp  # Ersätt med din temperatursensor
     unique_id: meteorological_season_24_avg_temp_sensor
     state_characteristic: mean
     max_age:
       hours: 24
     precision: 1
 
+input_datetime:
+  spring_arrival_date:
+    name: Vårens ankomstdatum
+    has_date: true
+    has_time: false
+
+  summer_arrival_date:
+    name: Sommarens ankomstdatum
+    has_date: true
+    has_time: false
+
+  autumn_arrival_date:
+    name: Höstens ankomstdatum
+    has_date: true
+    has_time: false
+
+  winter_arrival_date:
+    name: Vinterns ankomstdatum
+    has_date: true
+    has_time: false
+
+input_boolean:
+  winter_date_set:
+    name: "Vinterns datum satt"
+  spring_date_set:
+    name: "Vårens datum satt"
+  summer_date_set:
+    name: "Sommarens datum satt"
+  autumn_date_set:
+    name: "Höstens datum satt"
 counter:
   spring_days:
     name: Antal vårdygn i följd
@@ -61,7 +93,15 @@ counter:
     maximum: 5
 
 template:
-  - sensor:
+  - trigger:
+      - platform: state
+        entity_id:
+          - counter.spring_days
+          - counter.summer_days
+          - counter.autumn_days
+          - counter.winter_days
+          - automation.meteorologisk_arstid_berakna
+    sensor:
       - name: "Meteorologisk årstid"
         unique_id: meteorological_season_sensor
         state: >
@@ -76,6 +116,27 @@ template:
           {% else %}
             Ej beräknad
           {% endif %}
+        attributes:
+          Ankomstdatum: >
+            {% if this.state == 'Vår' and is_state('input_boolean.spring_date_set', 'on') %}
+              {{ states('input_datetime.spring_arrival_date') }}
+            {% elif this.state == 'Sommar' and is_state('input_boolean.summer_date_set', 'on') %}
+              {{ states('input_datetime.summer_arrival_date') }}
+            {% elif this.state == 'Höst' and is_state('input_boolean.autumn_date_set', 'on') %}
+              {{ states('input_datetime.autumn_arrival_date') }}
+            {% elif this.state == 'Vinter' and is_state('input_boolean.winter_date_set', 'on') %}
+              {{ states('input_datetime.winter_arrival_date') }}
+            {% else %}
+              Ej registrerat
+            {% endif %}    
+          Förra dygnets medeltemp: "{{ states('sensor.24_hour_average_temperature') | float(0) }}"
+          Senast uppdaterad: "{{ now().strftime('%Y-%m-%d %H:%M') }}"    
+          Historik: "__________________"
+          Vinterns ankomstdatum: "{{ states('input_datetime.winter_arrival_date') if (this.state != 'Vinter' and is_state('input_boolean.winter_date_set', 'on')) else '' }}"
+          Vårens ankomstdatum: "{{ states('input_datetime.spring_arrival_date') if (this.state != 'Vår' and is_state('input_boolean.spring_date_set', 'on')) else '' }}"
+          Sommarens ankomstdatum: "{{ states('input_datetime.summer_arrival_date') if (this.state != 'Sommar' and is_state('input_boolean.summer_date_set', 'on')) else '' }}"
+          Höstens ankomstdatum: "{{ states('input_datetime.autumn_arrival_date') if (this.state != 'Höst' and is_state('input_boolean.autumn_date_set', 'on')) else '' }}"
+
         icon: >
           {% if this.state == 'Vår' %}
             mdi:flower
@@ -87,33 +148,22 @@ template:
             mdi:snowflake
           {% else %}
             mdi:weather-partly-cloudy
-          {% endif %}
-        attributes:
-          arrival_date: >
-            {% if this.state == 'Vår' %}
-              {{ (now() - timedelta(days = states('counter.spring_days') | int(0) - 1)).strftime('%Y-%m-%d') }}
-            {% elif this.state == 'Sommar' %}
-              {{ (now() - timedelta(days = states('counter.summer_days') | int(0) - 1)).strftime('%Y-%m-%d') }}
-            {% elif this.state == 'Höst' %}
-              {{ (now() - timedelta(days = states('counter.autumn_days') | int(0) - 1)).strftime('%Y-%m-%d') }}
-            {% elif this.state == 'Vinter' %}
-              {{ (now() - timedelta(days = states('counter.winter_days') | int(0) - 1)).strftime('%Y-%m-%d') }}
-            {% else %}
-              Unknown
-            {% endif %}
-
+          {% endif %}  
+          
 automation:
   - alias: "Meteorologisk årstid Beräkna"
     id: calculate_meteorological_seasons_automation
     trigger:
       - platform: time
-        at: "00:01:00"  # Kör strax efter midnatt.
+        at: "00:01:00"
+
     action:
       - variables:
           average_temp: "{{ states('sensor.24_hour_average_temperature') | float(none) }}"
-          
+          six_months_ago: "{{ (now() - timedelta(days=180)).strftime('%Y-%m-%d') }}"
+
       - choose:
-          - conditions: "{{ average_temp is none }}"          # Om temperaturdata saknas, logga och avbryt
+          - conditions: "{{ average_temp is none }}"
             sequence:
               - service: logbook.log
                 data:
@@ -126,62 +176,113 @@ automation:
                   message: "Meteorologisk årstid: Temperaturdata är otillgänglig, beräkning avbruten."
               - stop: "Temperaturdata otillgänglig, avbryter automationen"
 
-      - variables:  # Definiera variabler för temperatur och datumvillkor
-          is_spring_temp: "{{ average_temp > 0.0 and average_temp < 10.0 }}"
-          is_summer_temp: "{{ average_temp >= 10.0 }}"
-          is_autumn_temp: "{{ average_temp < 10.0 and average_temp > 0.0 }}"
-          is_winter_temp: "{{ average_temp <= 0.0 }}"
-          spring_date_ok: "{{ (now().month == 2 and now().day >= 15) or (now().month > 2 and now().month <= 7) }}" #Datum ligger mellan den 15 februari och slutet av juli. 
-          autumn_date_ok: "{{ (now().month >= 8) or (now().month == 2 and now().day <= 14) }}" #Datum ligger mellan augusti och den 14 februari. 
-
-
+      - variables:
+          spring_date_ok: "{{ (now().month == 2 and now().day >= 15) or (now().month > 2 and now().month <= 7) }}"
+          autumn_date_ok: "{{ (now().month >= 8) or (now().month == 2 and now().day <= 14) }}"
 
       - choose:
-          # Vår
-          - conditions: "{{ spring_date_ok and is_spring_temp }}"
-            sequence:
-              - service: counter.increment
-                target:
-                  entity_id: counter.spring_days
-          - conditions: "{{ not (spring_date_ok and is_spring_temp) }}"  # Nollställ om inte datumintervall och vårtemperatur
-            sequence:
-              - service: counter.reset
-                target:
-                  entity_id: counter.spring_days
-
-          # Sommar
-          - conditions: "{{ is_summer_temp }}"  
-            sequence:
-              - service: counter.increment
-                target:
-                  entity_id: counter.summer_days
-          - conditions: "{{ not is_summer_temp }}"  # Nollställ om inte sommartemperatur
-            sequence:
-              - service: counter.reset
-                target:
-                  entity_id: counter.summer_days
-
-          # Höst
-          - conditions: "{{ autumn_date_ok and is_autumn_temp }}"
-            sequence:
-              - service: counter.increment
-                target:
-                  entity_id: counter.autumn_days
-          - conditions:  "{{ not (autumn_date_ok and is_autumn_temp) }}"  # Nollställ om inte datumintervall och höstemperatur
-            sequence:
-              - service: counter.reset
-                target:
-                  entity_id: counter.autumn_days
-
-          # Vinter
-          - conditions: "{{ is_winter_temp }}"
+          # **Vinter **
+          - conditions: "{{ average_temp <= 0.0 }}"
             sequence:
               - service: counter.increment
                 target:
                   entity_id: counter.winter_days
-          - conditions: "{{ not is_winter_temp }}"  # Nollställ om inte vintertemperatur
-            sequence:
+              - condition: "{{ states('sensor.meteorologisk_arstid')  == 'Vinter' }}"  # Återställ övriga räknare endast om vinter nåtts
               - service: counter.reset
                 target:
-                  entity_id: counter.winter_days
+                  entity_id:
+                    - counter.spring_days
+                    - counter.summer_days
+                    - counter.autumn_days
+              - condition: template  #Uppdatera arrival_date om det tidigare inte finns ett datum eller om om det har gått 6 månader
+                value_template: >-
+                  {% set stored_date = states('input_datetime.winter_arrival_date') %}
+                  {{ is_state('input_boolean.winter_date_set', 'off') or stored_date < six_months_ago }}
+              - service: input_datetime.set_datetime
+                target:
+                  entity_id: input_datetime.winter_arrival_date
+                data:
+                  date: "{{ (now() - timedelta(days = 5)).strftime('%Y-%m-%d') }}"
+              - service: input_boolean.turn_on
+                target:
+                  entity_id: input_boolean.winter_date_set
+
+          # **Sommar**
+          - conditions: "{{ average_temp >= 10.0 }}"
+            sequence:
+              - service: counter.increment
+                target:
+                  entity_id: counter.summer_days
+              - condition: "{{ states('sensor.meteorologisk_arstid') == 'Sommar' }}"  # Återställ övriga räknare endast om sommar nåtts
+              - service: counter.reset
+                target:
+                  entity_id:
+                    - counter.spring_days
+                    - counter.winter_days
+                    - counter.autumn_days
+              - condition: template  
+                value_template: >-
+                  {% set stored_date = states('input_datetime.summer_arrival_date') %}
+                  {{ is_state('input_boolean.summer_date_set', 'off') or stored_date < six_months_ago }}
+              - service: input_datetime.set_datetime
+                target:
+                  entity_id: input_datetime.summer_arrival_date
+                data:
+                  date: "{{ (now() - timedelta(days = 5)).strftime('%Y-%m-%d') }}"
+              - service: input_boolean.turn_on
+                target:
+                  entity_id: input_boolean.summer_date_set
+
+          #  **Vår **
+          - conditions: "{{ spring_date_ok and average_temp > 0.0 }}"
+            sequence:
+              - service: counter.increment
+                target:
+                  entity_id: counter.spring_days
+              - condition: "{{ states('sensor.meteorologisk_arstid') == 'Vår' }}"  # Återställ övriga räknare endast om vår nåtts
+              - service: counter.reset
+                target:
+                  entity_id:
+                    - counter.summer_days
+                    - counter.winter_days
+                    - counter.autumn_days
+              - condition: template
+                value_template: >-
+                  {% set stored_date = states('input_datetime.spring_arrival_date') %}
+                  {{ is_state('input_boolean.spring_date_set', 'off') or stored_date < six_months_ago }}
+              - service: input_datetime.set_datetime
+                target:
+                  entity_id: input_datetime.spring_arrival_date
+                data:
+                  date: "{{ (now() - timedelta(days = 7)).strftime('%Y-%m-%d') }}"
+              - service: input_boolean.turn_on
+                target:
+                  entity_id: input_boolean.spring_date_set
+
+          #  **Höst **
+          - conditions: "{{ autumn_date_ok and average_temp < 10.0 }}"
+            sequence:
+              - service: counter.increment
+                target:
+                  entity_id: counter.autumn_days
+              - condition: "{{ states('sensor.meteorologisk_arstid') == 'Höst' }}"  # Återställ övriga räknare endast om höst nåtts
+              - service: counter.reset
+                target:
+                  entity_id:
+                    - counter.spring_days
+                    - counter.summer_days
+                    - counter.winter_days
+              - condition: template
+                value_template: >-
+                  {% set stored_date = states('input_datetime.autumn_arrival_date') %}
+                  {{ is_state('input_boolean.autumn_date_set', 'off') or stored_date < six_months_ago }}
+              - service: input_datetime.set_datetime
+                target:
+                  entity_id: input_datetime.autumn_arrival_date
+                data:
+                  date: "{{ (now() - timedelta(days = 5)).strftime('%Y-%m-%d') }}"
+              - service: input_boolean.turn_on
+                target:
+                  entity_id: input_boolean.autumn_date_set
+
     mode: single
