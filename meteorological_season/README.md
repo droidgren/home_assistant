@@ -37,7 +37,7 @@ Vintern anländer om det råder vintertemperatur fem dygn i följd.
 Vintertemperatur är det då dygnsmedeltemperaturen är 0,0°C eller lägre, men ännu inte fem dygn i följd. 
 Vinterns ankomstdatum avser det första dygnet av fem med vintertemperaturer.
 
-### Vinter
+### Vår
 Våren anländer om det råder vårtemperatur sju dygn i följd. 
 Vårtemperatur är det då dygnsmedeltemperaturen är över 0,0°C, men ännu inte sju dygn i följd. Vårens ankomstdatum avser det första dygnet av sju med vårtemperaturer. 
 Den 15 februari har satts som det tidigaste tillåtna datumet för vårens ankomst. 
