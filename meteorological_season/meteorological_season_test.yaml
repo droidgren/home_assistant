@@ -130,10 +130,10 @@ template:
           Sommardygn: "{{ states('counter.mst_summer_days') }}/5"
           Höstdygn: "{{ states('counter.mst_autumn_days') }}/5"
           # Historical arrival dates
-          Vinterns ankomstdatum: "{{ states('input_datetime.mst_winter_arrival_date') if is_state('mst_input_boolean.winter_date_set', 'on') else '' }}"
-          Vårens ankomstdatum: "{{ states('input_datetime.mst_spring_arrival_date') if is_state('mst_input_boolean.spring_date_set', 'on') else '' }}"
-          Sommarens ankomstdatum: "{{ states('input_datetime.mst_summer_arrival_date') if (mst_is_state'input_boolean.summer_date_set', 'on') else '' }}"
-          Höstens ankomstdatum: "{{ states('input_datetime.mst_autumn_arrival_date') if is_state('mst_input_boolean.autumn_date_set', 'on') else '' }}"
+          Vinterns ankomstdatum: "{{ states('input_datetime.mst_winter_arrival_date') if is_state('input_boolean.mst_winter_date_set', 'on') else '' }}"
+          Vårens ankomstdatum: "{{ states('input_datetime.mst_spring_arrival_date') if is_state('input_boolean.mst_spring_date_set', 'on') else '' }}"
+          Sommarens ankomstdatum: "{{ states('input_datetime.mst_summer_arrival_date') if is_state('input_boolean.mst_summer_date_set', 'on') else '' }}"
+          Höstens ankomstdatum: "{{ states('input_datetime.mst_autumn_arrival_date') if is_state('input_boolean.mst_autumn_date_set', 'on') else '' }}"
 
         icon: >
           {% if is_state('input_boolean.mst_winter_date_set', 'on') %}
