@@ -122,7 +122,7 @@ template:
             {% else %}
               Ej registrerat
             {% endif %}
-          Förra dygnets medeltemp: "{{ states('sensor.24_hour_average_temperature') | round(1, default=None) }}"
+          Förra dygnets medeltemp: "{{ states('sensor.24_hour_average_temperature') }}"
           Senast uppdaterad: "{{ now().strftime('%Y-%m-%d %H:%M') }}"
           # Showing counters for debugging/interest
           Vinterdygn: "{{ states('counter.mst_winter_days') }}/5"
@@ -130,10 +130,10 @@ template:
           Sommardygn: "{{ states('counter.mst_summer_days') }}/5"
           Höstdygn: "{{ states('counter.mst_autumn_days') }}/5"
           # Historical arrival dates
-          Vinterns ankomstdatum: "{{ states('input_datetime.mst_winter_arrival_date') if states('input_datetime.mst_winter_arrival_date') not in ['unknown', ''] else 'Ej satt' }}"
-          Vårens ankomstdatum: "{{ states('input_datetime.mst_spring_arrival_date') if states('input_datetime.mst_spring_arrival_date') not in ['unknown', ''] else 'Ej satt' }}"
-          Sommarens ankomstdatum: "{{ states('input_datetime.mst_summer_arrival_date') if states('input_datetime.mst_summer_arrival_date') not in ['unknown', ''] else 'Ej satt' }}"
-          Höstens ankomstdatum: "{{ states('input_datetime.mst_autumn_arrival_date') if states('input_datetime.mst_autumn_arrival_date') not in ['unknown', ''] else 'Ej satt' }}"
+          Vinterns ankomstdatum: "{{ states('input_datetime.mst_winter_arrival_date') if is_state('mst_input_boolean.winter_date_set', 'on') else '' }}"
+          Vårens ankomstdatum: "{{ states('input_datetime.mst_spring_arrival_date') if is_state('mst_input_boolean.spring_date_set', 'on') else '' }}"
+          Sommarens ankomstdatum: "{{ states('input_datetime.mst_summer_arrival_date') if (mst_is_state'input_boolean.summer_date_set', 'on') else '' }}"
+          Höstens ankomstdatum: "{{ states('input_datetime.mst_autumn_arrival_date') if is_state('mst_input_boolean.autumn_date_set', 'on') else '' }}"
 
         icon: >
           {% if is_state('input_boolean.mst_winter_date_set', 'on') %}
