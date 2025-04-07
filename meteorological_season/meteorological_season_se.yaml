@@ -176,7 +176,7 @@ automation:
                     - counter.spring_days
                     - counter.summer_days
                     - counter.autumn_days
-              - condition: template  #Uppdatera arrival_date om det tidigare inte finns ett datum eller om om det har gått 6 månader
+              - condition: template  #Uppdatera winter_arrival_date om det tidigare inte finns ett datum eller om om det har gått mer än 6 månader (förra säsongens datum)
                 value_template: >-
                   {% set stored_date = states('input_datetime.winter_arrival_date') %}
                   {{ is_state('input_boolean.winter_date_set', 'off') or stored_date < six_months_ago }}
@@ -202,7 +202,7 @@ automation:
                     - counter.spring_days
                     - counter.winter_days
                     - counter.autumn_days
-              - condition: template  
+              - condition: template  #Uppdatera summer_arrival_date om det tidigare inte finns ett datum eller om om det har gått mer än 6 månader (förra säsongens datum)
                 value_template: >-
                   {% set stored_date = states('input_datetime.summer_arrival_date') %}
                   {{ is_state('input_boolean.summer_date_set', 'off') or stored_date < six_months_ago }}
@@ -228,7 +228,7 @@ automation:
                     - counter.summer_days
                     - counter.winter_days
                     - counter.autumn_days
-              - condition: template
+              - condition: template #Uppdatera spring_arrival_date om det tidigare inte finns ett datum eller om om det har gått mer än 6 månader (förra säsongens datum)
                 value_template: >-
                   {% set stored_date = states('input_datetime.spring_arrival_date') %}
                   {{ is_state('input_boolean.spring_date_set', 'off') or stored_date < six_months_ago }}
@@ -254,8 +254,8 @@ automation:
                     - counter.spring_days
                     - counter.summer_days
                     - counter.winter_days
-              - condition: template
-                value_template: >-
+              - condition: template  #Uppdatera autumn_arrival_date om det tidigare inte finns ett datum eller om om det har gått mer än 6 månader (förra säsongens datum)
+                value_template: >- 
                   {% set stored_date = states('input_datetime.autumn_arrival_date') %}
                   {{ is_state('input_boolean.autumn_date_set', 'off') or stored_date < six_months_ago }}
               - service: input_datetime.set_datetime
