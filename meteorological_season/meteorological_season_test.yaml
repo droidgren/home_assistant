@@ -13,68 +13,68 @@
 # Höst: < 10.0°C, 5 dygn i följd. Ankomst = dag 1. Tidigast ankomst 1 aug, senast ankomst 14 feb.
 
 # OBS! Ersätt sensor.genomsnittlig_utomhus_temp med din egen temperatursensor!
-sensor:
-  - platform: statistics
-    name: "24 Hour Average Temperature"
-    unique_id: meteorological_season_24_avg_temp_sensor
-    entity_id: sensor.genomsnittlig_utomhus_temp # <-- ERSÄTT DENNA
-    state_characteristic: mean
-    max_age:
-      hours: 24
-    precision: 1
+# sensor:
+  # - platform: statistics
+    # name: "24 Hour Average Temperature"
+    # unique_id: meteorological_season_24_avg_temp_sensor
+    # entity_id: sensor.genomsnittlig_utomhus_temp # <-- ERSÄTT DENNA
+    # state_characteristic: mean
+    # max_age:
+      # hours: 24
+    # precision: 1
 
 input_datetime:
-  spring_arrival_date:
+  mst_spring_arrival_date:
     name: Vårens ankomstdatum
     has_date: true
     has_time: false
-  summer_arrival_date:
+  mst_summer_arrival_date:
     name: Sommarens ankomstdatum
     has_date: true
     has_time: false
-  autumn_arrival_date:
+  mst_autumn_arrival_date:
     name: Höstens ankomstdatum
     has_date: true
     has_time: false
-  winter_arrival_date:
+  mst_winter_arrival_date:
     name: Vinterns ankomstdatum
     has_date: true
     has_time: false
 
 input_boolean:
-  winter_date_set:
+  mst_winter_date_set:
     name: "Vinterns datum satt"
     icon: mdi:snowflake-check
-  spring_date_set:
+  mst_spring_date_set:
     name: "Vårens datum satt"
     icon: mdi:flower-tulip-outline
-  summer_date_set:
+  mst_summer_date_set:
     name: "Sommarens datum satt"
     icon: mdi:sun-thermometer-outline
-  autumn_date_set:
+  mst_autumn_date_set:
     name: "Höstens datum satt"
     icon: mdi:leaf-maple
 
 counter:
-  spring_days:
+  mst_spring_days:
     name: Antal vårdygn i följd
     initial: 0
     step: 1
     minimum: 0
     maximum: 7 # Max 7 för vår
-  summer_days:
+  mst_summer_days:
     name: Antal sommardygn i följd
     initial: 0
     step: 1
     minimum: 0
     maximum: 5 # Max 5 för sommar
-  autumn_days:
+  mst_autumn_days:
     name: Antal höstdygn i följd
     initial: 0
     step: 1
     minimum: 0
     maximum: 5 # Max 5 för höst
-  winter_days:
+  mst_winter_days:
     name: Antal vinterdygn i följd
     initial: 0
     step: 1
@@ -85,67 +85,64 @@ template:
   - trigger:
       - platform: state
         entity_id:
-          - input_boolean.winter_date_set
-          - input_boolean.spring_date_set
-          - input_boolean.summer_date_set
-          - input_boolean.autumn_date_set
-      # Optional: trigger on counters too if you want immediate feedback on progress
-      # - platform: state
-      #   entity_id:
-      #     - counter.winter_days
-      #     - counter.spring_days
-      #     - counter.summer_days
-      #     - counter.autumn_days
+          - input_boolean.mst_winter_date_set
+          - input_boolean.mst_spring_date_set
+          - input_boolean.mst_summer_date_set
+          - input_boolean.mst_autumn_date_set
+          - counter.mst_winter_days
+          - counter.mst_spring_days
+          - counter.mst_summer_days
+          - counter.mst_autumn_days
     sensor:
-      - name: "Meteorologisk årstid"
-        unique_id: meteorological_season_sensor
+      - name: "Meteorologisk årstid v1.1"
+        unique_id: mst_meteorological_season_sensor
         # State based on which season's date is currently marked as set
         state: >
-          {% if is_state('input_boolean.winter_date_set', 'on') %}
+          {% if is_state('input_boolean.mst_winter_date_set', 'on') %}
             Vinter
-          {% elif is_state('input_boolean.spring_date_set', 'on') %}
+          {% elif is_state('input_boolean.mst_spring_date_set', 'on') %}
             Vår
-          {% elif is_state('input_boolean.summer_date_set', 'on') %}
+          {% elif is_state('input_boolean.mst_summer_date_set', 'on') %}
             Sommar
-          {% elif is_state('input_boolean.autumn_date_set', 'on') %}
+          {% elif is_state('input_boolean.mst_autumn_date_set', 'on') %}
             Höst
           {% else %}
             Ej Beräknad
           {% endif %}
         attributes:
           Ankomstdatum: >
-            {% if is_state('input_boolean.winter_date_set', 'on') %}
-              {{ states('input_datetime.winter_arrival_date') }}
-            {% elif is_state('input_boolean.spring_date_set', 'on') %}
-              {{ states('input_datetime.spring_arrival_date') }}
-            {% elif is_state('input_boolean.summer_date_set', 'on') %}
-              {{ states('input_datetime.summer_arrival_date') }}
-            {% elif is_state('input_boolean.autumn_date_set', 'on') %}
-              {{ states('input_datetime.autumn_arrival_date') }}
+            {% if is_state('input_boolean.mst_winter_date_set', 'on') %}
+              {{ states('input_datetime.mst_winter_arrival_date') }}
+            {% elif is_state('input_boolean.mst_spring_date_set', 'on') %}
+              {{ states('input_datetime.mst_spring_arrival_date') }}
+            {% elif is_state('input_boolean.mst_summer_date_set', 'on') %}
+              {{ states('input_datetime.mst_summer_arrival_date') }}
+            {% elif is_state('input_boolean.mst_autumn_date_set', 'on') %}
+              {{ states('input_datetime.mst_autumn_arrival_date') }}
             {% else %}
               Ej registrerat
             {% endif %}
           Förra dygnets medeltemp: "{{ states('sensor.24_hour_average_temperature') | round(1, default=None) }}"
           Senast uppdaterad: "{{ now().strftime('%Y-%m-%d %H:%M') }}"
           # Showing counters for debugging/interest
-          Vinterdygn: "{{ states('counter.winter_days') }}/5"
-          Vårdygn: "{{ states('counter.spring_days') }}/7"
-          Sommardygn: "{{ states('counter.summer_days') }}/5"
-          Höstdygn: "{{ states('counter.autumn_days') }}/5"
+          Vinterdygn: "{{ states('counter.mst_winter_days') }}/5"
+          Vårdygn: "{{ states('counter.mst_spring_days') }}/7"
+          Sommardygn: "{{ states('counter.mst_summer_days') }}/5"
+          Höstdygn: "{{ states('counter.mst_autumn_days') }}/5"
           # Historical arrival dates
-          Vinterns ankomstdatum: "{{ states('input_datetime.winter_arrival_date') if states('input_datetime.winter_arrival_date') not in ['unknown', ''] else 'Ej satt' }}"
-          Vårens ankomstdatum: "{{ states('input_datetime.spring_arrival_date') if states('input_datetime.spring_arrival_date') not in ['unknown', ''] else 'Ej satt' }}"
-          Sommarens ankomstdatum: "{{ states('input_datetime.summer_arrival_date') if states('input_datetime.summer_arrival_date') not in ['unknown', ''] else 'Ej satt' }}"
-          Höstens ankomstdatum: "{{ states('input_datetime.autumn_arrival_date') if states('input_datetime.autumn_arrival_date') not in ['unknown', ''] else 'Ej satt' }}"
+          Vinterns ankomstdatum: "{{ states('input_datetime.mst_winter_arrival_date') if states('input_datetime.mst_winter_arrival_date') not in ['unknown', ''] else 'Ej satt' }}"
+          Vårens ankomstdatum: "{{ states('input_datetime.mst_spring_arrival_date') if states('input_datetime.mst_spring_arrival_date') not in ['unknown', ''] else 'Ej satt' }}"
+          Sommarens ankomstdatum: "{{ states('input_datetime.mst_summer_arrival_date') if states('input_datetime.mst_summer_arrival_date') not in ['unknown', ''] else 'Ej satt' }}"
+          Höstens ankomstdatum: "{{ states('input_datetime.mst_autumn_arrival_date') if states('input_datetime.mst_autumn_arrival_date') not in ['unknown', ''] else 'Ej satt' }}"
 
         icon: >
-          {% if is_state('input_boolean.winter_date_set', 'on') %}
+          {% if is_state('input_boolean.mst_winter_date_set', 'on') %}
             mdi:snowflake
-          {% elif is_state('input_boolean.spring_date_set', 'on') %}
+          {% elif is_state('input_boolean.mst_spring_date_set', 'on') %}
             mdi:flower
-          {% elif is_state('input_boolean.summer_date_set', 'on') %}
+          {% elif is_state('input_boolean.mst_summer_date_set', 'on') %}
             mdi:sunglasses
-          {% elif is_state('input_boolean.autumn_date_set', 'on') %}
+          {% elif is_state('input_boolean.mst_autumn_date_set', 'on') %}
             mdi:leaf
           {% else %}
             mdi:progress-question # Icon indicating undetermined state
@@ -202,48 +199,48 @@ automation:
       - if: "{{ is_winter_temp }}"
         then:
           - service: counter.increment
-            target: { entity_id: counter.winter_days }
+            target: { entity_id: counter.mst_winter_days }
         else:
           - service: counter.reset
-            target: { entity_id: counter.winter_days }
+            target: { entity_id: counter.mst_winter_days }
       # Summer Counter
       - if: "{{ is_summer_temp }}"
         then:
           - service: counter.increment
-            target: { entity_id: counter.summer_days }
+            target: { entity_id: counter.mst_summer_days }
         else:
           - service: counter.reset
-            target: { entity_id: counter.summer_days }
+            target: { entity_id: counter.mst_summer_days }
       # Spring Counter
       - if: "{{ is_spring_potential_temp and today_is_spring_period }}"
         then:
           - service: counter.increment
-            target: { entity_id: counter.spring_days }
+            target: { entity_id: counter.mst_spring_days }
         else:
           - service: counter.reset
-            target: { entity_id: counter.spring_days }
+            target: { entity_id: counter.mst_spring_days }
       # Autumn Counter
       - if: "{{ is_autumn_potential_temp and today_is_autumn_period }}"
         then:
           - service: counter.increment
-            target: { entity_id: counter.autumn_days }
+            target: { entity_id: counter.mst_autumn_days }
         else:
           - service: counter.reset
-            target: { entity_id: counter.autumn_days }
+            target: { entity_id: counter.mst_autumn_days }
 
       # === Step 4: Check for Season Arrival and Set Dates/Flags ===
       - variables:
           # Get current counter values
-          winter_c: "{{ states('counter.winter_days') | int(0) }}"
-          spring_c: "{{ states('counter.spring_days') | int(0) }}"
-          summer_c: "{{ states('counter.summer_days') | int(0) }}"
-          autumn_c: "{{ states('counter.autumn_days') | int(0) }}"
+          winter_c: "{{ states('counter.mst_winter_days') | int(0) }}"
+          spring_c: "{{ states('counter.mst_spring_days') | int(0) }}"
+          summer_c: "{{ states('counter.mst_summer_days') | int(0) }}"
+          autumn_c: "{{ states('counter.mst_autumn_days') | int(0) }}"
           # Get current stored dates for the 180-day check
           # Use a far past date if not set, to allow first setting
-          winter_stored_date_str: "{{ states('input_datetime.winter_arrival_date') | default('1970-01-01') }}"
-          spring_stored_date_str: "{{ states('input_datetime.spring_arrival_date') | default('1970-01-01') }}"
-          summer_stored_date_str: "{{ states('input_datetime.summer_arrival_date') | default('1970-01-01') }}"
-          autumn_stored_date_str: "{{ states('input_datetime.autumn_arrival_date') | default('1970-01-01') }}"
+          winter_stored_date_str: "{{ states('input_datetime.mst_winter_arrival_date') | default('1970-01-01') }}"
+          spring_stored_date_str: "{{ states('input_datetime.mst_spring_arrival_date') | default('1970-01-01') }}"
+          summer_stored_date_str: "{{ states('input_datetime.mst_summer_arrival_date') | default('1970-01-01') }}"
+          autumn_stored_date_str: "{{ states('input_datetime.mst_autumn_arrival_date') | default('1970-01-01') }}"
           # Date 180 days ago for comparison
           six_months_ago_ts: "{{ (now() - timedelta(days=180)).timestamp() }}"
 
@@ -255,22 +252,22 @@ automation:
                   winter_arrival_dt_str: "{{ (now() - timedelta(days=5)).strftime('%Y-%m-%d') }}"
                   # Check if date needs setting (boolean off OR stored date is old)
                   set_winter_date: >-
-                    {{ is_state('input_boolean.winter_date_set', 'off') or
+                    {{ is_state('input_boolean.mst_winter_date_set', 'off') or
                        (strptime(winter_stored_date_str, '%Y-%m-%d', default=now()).timestamp() < six_months_ago_ts) }}
               - if: "{{ set_winter_date }}"
                 then:
                   - service: input_datetime.set_datetime
-                    target: { entity_id: input_datetime.winter_arrival_date }
+                    target: { entity_id: input_datetime.mst_winter_arrival_date }
                     data: { date: "{{ winter_arrival_dt_str }}" }
                   - service: input_boolean.turn_on
-                    target: { entity_id: input_boolean.winter_date_set }
+                    target: { entity_id: input_boolean.mst_winter_date_set }
                   # Turn off other season flags
                   - service: input_boolean.turn_off
                     target:
                       entity_id:
-                        - input_boolean.spring_date_set
-                        - input_boolean.summer_date_set
-                        - input_boolean.autumn_date_set
+                        - input_boolean.mst_spring_date_set
+                        - input_boolean.mst_summer_date_set
+                        - input_boolean.mst_autumn_date_set
 
           # --- Spring Arrival Check ---
           - conditions: "{{ spring_c >= 7 }}"
@@ -283,22 +280,22 @@ automation:
                   latest_spring_ok: "{{ (spring_arrival_dt_obj.month * 100 + spring_arrival_dt_obj.day) <= 731 }}"
                   # Check if date needs setting
                   set_spring_date: >-
-                    {{ is_state('input_boolean.spring_date_set', 'off') or
+                    {{ is_state('input_boolean.mst_spring_date_set', 'off') or
                        (strptime(spring_stored_date_str, '%Y-%m-%d', default=now()).timestamp() < six_months_ago_ts) }}
               - if: "{{ set_spring_date and latest_spring_ok }}"
                 then:
                   - service: input_datetime.set_datetime
-                    target: { entity_id: input_datetime.spring_arrival_date }
+                    target: { entity_id: input_datetime.mst_spring_arrival_date }
                     data: { date: "{{ spring_arrival_dt_str }}" }
                   - service: input_boolean.turn_on
-                    target: { entity_id: input_boolean.spring_date_set }
+                    target: { entity_id: input_boolean.mst_spring_date_set }
                   # Turn off other season flags
                   - service: input_boolean.turn_off
                     target:
                       entity_id:
-                        - input_boolean.winter_date_set
-                        - input_boolean.summer_date_set
-                        - input_boolean.autumn_date_set
+                        - input_boolean.mst_winter_date_set
+                        - input_boolean.mst_summer_date_set
+                        - input_boolean.mst_autumn_date_set
 
           # --- Summer Arrival Check ---
           - conditions: "{{ summer_c >= 5 }}"
@@ -307,22 +304,22 @@ automation:
                   summer_arrival_dt_str: "{{ (now() - timedelta(days=5)).strftime('%Y-%m-%d') }}"
                   # Check if date needs setting
                   set_summer_date: >-
-                    {{ is_state('input_boolean.summer_date_set', 'off') or
+                    {{ is_state('input_boolean.mst_summer_date_set', 'off') or
                        (strptime(summer_stored_date_str, '%Y-%m-%d', default=now()).timestamp() < six_months_ago_ts) }}
               - if: "{{ set_summer_date }}"
                 then:
                   - service: input_datetime.set_datetime
-                    target: { entity_id: input_datetime.summer_arrival_date }
+                    target: { entity_id: input_datetime.mst_summer_arrival_date }
                     data: { date: "{{ summer_arrival_dt_str }}" }
                   - service: input_boolean.turn_on
-                    target: { entity_id: input_boolean.summer_date_set }
+                    target: { entity_id: input_boolean.mst_summer_date_set }
                   # Turn off other season flags
                   - service: input_boolean.turn_off
                     target:
                       entity_id:
-                        - input_boolean.winter_date_set
-                        - input_boolean.spring_date_set
-                        - input_boolean.autumn_date_set
+                        - input_boolean.mst_winter_date_set
+                        - input_boolean.mst_spring_date_set
+                        - input_boolean.mst_autumn_date_set
 
           # --- Autumn Arrival Check ---
           - conditions: "{{ autumn_c >= 5 }}"
@@ -338,21 +335,21 @@ automation:
                     {{ (arr_m >= 8) or (arr_m == 1) or (arr_m == 2 and arr_d <= 14) }}
                   # Check if date needs setting
                   set_autumn_date: >-
-                    {{ is_state('input_boolean.autumn_date_set', 'off') or
+                    {{ is_state('input_boolean.mst_autumn_date_set', 'off') or
                        (strptime(autumn_stored_date_str, '%Y-%m-%d', default=now()).timestamp() < six_months_ago_ts) }}
               - if: "{{ set_autumn_date and latest_autumn_ok }}"
                 then:
                   - service: input_datetime.set_datetime
-                    target: { entity_id: input_datetime.autumn_arrival_date }
+                    target: { entity_id: input_datetime.mst_autumn_arrival_date }
                     data: { date: "{{ autumn_arrival_dt_str }}" }
                   - service: input_boolean.turn_on
-                    target: { entity_id: input_boolean.autumn_date_set }
+                    target: { entity_id: input_boolean.mst_autumn_date_set }
                   # Turn off other season flags
                   - service: input_boolean.turn_off
                     target:
                       entity_id:
-                        - input_boolean.winter_date_set
-                        - input_boolean.spring_date_set
-                        - input_boolean.summer_date_set
+                        - input_boolean.mst_winter_date_set
+                        - input_boolean.mst_spring_date_set
+                        - input_boolean.mst_summer_date_set
 
     mode: single # Ensure only one instance runs at a time
