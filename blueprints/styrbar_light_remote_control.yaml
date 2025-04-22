@@ -1,8 +1,9 @@
 blueprint:
   name: Styrbar Remote Control for Lights
-  description: 'Provides integration and control for the IKEA E2001/E2002 Styrbar
-    remote control. Allows for turning lights on/off, adjusting brightness, and changing
-    color temperature. Designed for a Zigbee2MQTT group of light bulbs.'
+  description: >
+    Provides integration and control for the IKEA E2001/E2002 Styrbar remote control.
+    Allows for turning lights on/off, adjusting brightness, and changing color temperature.
+    Designed for a Zigbee2MQTT group of light bulbs.
   domain: automation
   input:
     light_entity:
@@ -10,220 +11,213 @@ blueprint:
       description: The light to control.
       selector:
         entity:
-          domain:
-          - light
-          multiple: false
+          domain: light
     mqtt_device:
       name: Styrbar Remote Control
       description: The IKEA E2001/E2002 remote control.
       selector:
-        device:
-          multiple: false
+        device: {}
     brightness_step:
       name: Brightness Step
-      description: Brightness adjustment step (slider percentage, 1-100%).
+      description: "Brightness adjustment step (slider percentage, 1-100%)."
       default: 5
       selector:
         number:
-          min: 1.0
-          max: 100.0
-          step: 1.0
-          unit_of_measurement: '%'
-          mode: slider
+          min: 1
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
     delay_ms:
       name: Delay (ms) Between Steps
-      description: Delay in milliseconds between brightness adjustment steps.
+      description: "Delay in milliseconds between brightness adjustment steps."
       default: 300
       selector:
         number:
-          min: 100.0
-          max: 2000.0
-          step: 100.0
-          unit_of_measurement: ms
-          mode: slider
+          min: 100
+          max: 2000
+          step: 100
+          unit_of_measurement: "ms"
     transition_seconds:
       name: Transition Time (Seconds)
-      description: The duration in seconds for the light transition effect.
+      description: "The duration in seconds for the light transition effect."
       default: 1
       selector:
         number:
           min: 0.1
-          max: 9999.0
+          max: 9999
           step: 0.1
-          unit_of_measurement: s
-          mode: slider
-  source_url: https://github.com/ouhlar/home_assistant/blob/main/blueprints/styrbar_light_remote_control.yaml
+          unit_of_measurement: "s"
+
 trigger:
-- platform: device
-  device_id: !input mqtt_device
-  domain: mqtt
-  type: action
-  subtype: 'on'
-  id: light_on
-- platform: device
-  device_id: !input mqtt_device
-  domain: mqtt
-  type: action
-  subtype: 'off'
-  id: light_off
-- platform: device
-  device_id: !input mqtt_device
-  domain: mqtt
-  type: action
-  subtype: arrow_left_click
-  id: change_color_left
-- platform: device
-  device_id: !input mqtt_device
-  domain: mqtt
-  type: action
-  subtype: arrow_left_hold
-  id: change_color_left_hold
-- platform: device
-  device_id: !input mqtt_device
-  domain: mqtt
-  type: action
-  subtype: arrow_left_release
-  id: change_color_left_release
-- platform: device
-  device_id: !input mqtt_device
-  domain: mqtt
-  type: action
-  subtype: arrow_right_click
-  id: change_color_right
-- platform: device
-  device_id: !input mqtt_device
-  domain: mqtt
-  type: action
-  subtype: arrow_right_hold
-  id: change_color_right_hold
-- platform: device
-  device_id: !input mqtt_device
-  domain: mqtt
-  type: action
-  subtype: arrow_right_release
-  id: change_color_right_release
-- platform: device
-  device_id: !input mqtt_device
-  domain: mqtt
-  type: action
-  subtype: brightness_move_down
-  id: dim_down
-- platform: device
-  device_id: !input mqtt_device
-  domain: mqtt
-  type: action
-  subtype: brightness_move_up
-  id: dim_up
-- platform: device
-  device_id: !input mqtt_device
-  domain: mqtt
-  type: action
-  subtype: brightness_stop
-  id: dim_stop
+  - platform: device
+    device_id: !input mqtt_device
+    domain: mqtt
+    type: action
+    subtype: "on"
+    id: light_on
+  - platform: device
+    device_id: !input mqtt_device
+    domain: mqtt
+    type: action
+    subtype: "off"
+    id: light_off
+  - platform: device
+    device_id: !input mqtt_device
+    domain: mqtt
+    type: action
+    subtype: arrow_left_click
+    id: change_color_left
+  - platform: device
+    device_id: !input mqtt_device
+    domain: mqtt
+    type: action
+    subtype: arrow_left_hold
+    id: change_color_left_hold
+  - platform: device
+    device_id: !input mqtt_device
+    domain: mqtt
+    type: action
+    subtype: arrow_left_release
+    id: change_color_left_release
+  - platform: device
+    device_id: !input mqtt_device
+    domain: mqtt
+    type: action
+    subtype: arrow_right_click
+    id: change_color_right
+  - platform: device
+    device_id: !input mqtt_device
+    domain: mqtt
+    type: action
+    subtype: arrow_right_hold
+    id: change_color_right_hold
+  - platform: device
+    device_id: !input mqtt_device
+    domain: mqtt
+    type: action
+    subtype: arrow_right_release
+    id: change_color_right_release
+  - platform: device
+    device_id: !input mqtt_device
+    domain: mqtt
+    type: action
+    subtype: brightness_move_down
+    id: dim_down
+  - platform: device
+    device_id: !input mqtt_device
+    domain: mqtt
+    type: action
+    subtype: brightness_move_up
+    id: dim_up
+  - platform: device
+    device_id: !input mqtt_device
+    domain: mqtt
+    type: action
+    subtype: brightness_stop
+    id: dim_stop
+
 variables:
   light_entity: !input light_entity
+  brightness_step: !input 'brightness_step'
+
 action:
-- choose:
-  - conditions:
-    - condition: trigger
-      id: light_on
-    sequence:
-    - service: light.turn_on
-      target:
-        entity_id: !input light_entity
-  - conditions:
-    - condition: trigger
-      id: light_off
-    sequence:
-    - service: light.turn_off
-      target:
-        entity_id: !input light_entity
-  - conditions:
-    - condition: trigger
-      id: change_color_left
-    sequence:
-    - service: light.turn_on
-      target:
-        entity_id: !input light_entity
-      data:
-        color_temp_kelvin: '{{ state_attr(light_entity, ''color_temp_kelvin'') - 200
-          }}'
-  - conditions:
-    - condition: trigger
-      id: change_color_left_hold
-    sequence:
-    - repeat:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: light_on
         sequence:
-        - service: light.turn_on
-          target:
-            entity_id: !input light_entity
-          data:
-            color_temp_kelvin: '{{ state_attr(light_entity, ''color_temp_kelvin'')
-              - 100 }}'
-        - delay:
-            milliseconds: !input delay_ms
-        until:
-        - condition: trigger
-          id: change_color_left_release
-  - conditions:
-    - condition: trigger
-      id: change_color_right
-    sequence:
-    - service: light.turn_on
-      target:
-        entity_id: !input light_entity
-      data:
-        color_temp_kelvin: '{{ state_attr(light_entity, ''color_temp_kelvin'') + 200
-          }}'
-  - conditions:
-    - condition: trigger
-      id: change_color_right_hold
-    sequence:
-    - repeat:
+          - service: light.turn_on
+            target:
+              entity_id: !input light_entity
+      - conditions:
+          - condition: trigger
+            id: light_off
         sequence:
-        - service: light.turn_on
-          target:
-            entity_id: !input light_entity
-          data:
-            color_temp_kelvin: '{{ state_attr(light_entity, ''color_temp_kelvin'')
-              + 100 }}'
-        - delay:
-            milliseconds: !input delay_ms
-        until:
-        - condition: trigger
-          id: change_color_right_release
-  - conditions:
-    - condition: trigger
-      id: dim_down
-    sequence:
-    - repeat:
+          - service: light.turn_off
+            target:
+              entity_id: !input light_entity
+      - conditions:
+          - condition: trigger
+            id: change_color_left
         sequence:
-        - service: light.turn_on
-          target:
-            entity_id: !input light_entity
-          data:
-            brightness_step_pct: -{{ states('input.brightness_step') | int(5) }}
-            transition: !input transition_seconds
-        - delay:
-            milliseconds: !input delay_ms
-        until:
-        - condition: trigger
-          id: dim_stop
-  - conditions:
-    - condition: trigger
-      id: dim_up
-    sequence:
-    - repeat:
+          - service: light.turn_on
+            target:
+              entity_id: !input light_entity
+            data:
+              color_temp_kelvin: "{{ state_attr(light_entity, 'color_temp_kelvin') - 200 }}"
+      - conditions:
+          - condition: trigger
+            id: change_color_left_hold
         sequence:
-        - service: light.turn_on
-          target:
-            entity_id: !input light_entity
-          data:
-            brightness_step_pct: '{{ states(''input.brightness_step'') | int(5) }}'
-            transition: !input transition_seconds
-        - delay:
-            milliseconds: !input delay_ms
-        until:
-        - condition: trigger
-          id: dim_stop
+          - repeat:
+              sequence:
+                - service: light.turn_on
+                  target:
+                    entity_id: !input light_entity
+                  data:
+                    color_temp_kelvin: "{{ state_attr(light_entity, 'color_temp_kelvin') - 100 }}"
+                - delay:
+                    milliseconds: !input delay_ms
+              until:
+                - condition: trigger
+                  id: change_color_left_release
+      - conditions:
+          - condition: trigger
+            id: change_color_right
+        sequence:
+          - service: light.turn_on
+            target:
+              entity_id: !input light_entity
+            data:
+              color_temp_kelvin: "{{ state_attr(light_entity, 'color_temp_kelvin') + 200 }}"
+      - conditions:
+          - condition: trigger
+            id: change_color_right_hold
+        sequence:
+          - repeat:
+              sequence:
+                - service: light.turn_on
+                  target:
+                    entity_id: !input light_entity
+                  data:
+                    color_temp_kelvin: "{{ state_attr(light_entity, 'color_temp_kelvin') + 100 }}"
+                - delay:
+                    milliseconds: !input delay_ms
+              until:
+                - condition: trigger
+                  id: change_color_right_release
+      - conditions:
+          - condition: trigger
+            id: dim_down
+        sequence:
+          - repeat:
+              sequence:
+                - service: light.turn_on
+                  target:
+                    entity_id: !input light_entity
+                  data:
+                    brightness_step_pct: "-{{ brightness_step | int(5) }}"
+                    transition: !input transition_seconds
+                - delay:
+                    milliseconds: !input delay_ms
+              until:
+                - condition: trigger
+                  id: dim_stop
+      - conditions:
+          - condition: trigger
+            id: dim_up
+        sequence:
+          - repeat:
+              sequence:
+                - service: light.turn_on
+                  target:
+                    entity_id: !input light_entity
+                  data:
+                    brightness_step_pct: "{{ brightness_step | int(5) }}"
+                    transition: !input transition_seconds
+                - delay:
+                    milliseconds: !input delay_ms
+              until:
+                - condition: trigger
+                  id: dim_stop
 mode: restart
