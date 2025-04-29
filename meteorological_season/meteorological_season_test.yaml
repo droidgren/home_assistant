@@ -3,7 +3,7 @@
 #  Denna yaml-fil beräknar den Meteorologiska årstiden enligt SMHIs definition baserat på temperaturen där du bor.
 #  Förbättrad logik för nollställning av räknare och datumhantering.
 #
-#  Installation kopiera denna fil till din packages mapp och uppdatera sensorn nedan
+#  Installation kopiera denna fil till din packages mapp och uppdatera sensorn nedan med din egen utomhustempsensor
 #
 
 #Definitioner SMHI https://www.smhi.se/vader/observationer/arstidskarta
@@ -93,6 +93,7 @@ template:
           - counter.mst_spring_days
           - counter.mst_summer_days
           - counter.mst_autumn_days
+          - automation.meteorologisk_arstid_berakna_v1_1
     sensor:
       - name: "Meteorologisk årstid v1.1"
         unique_id: mst_meteorological_season_sensor
@@ -122,7 +123,7 @@ template:
             {% else %}
               Ej registrerat
             {% endif %}
-          Förra dygnets medeltemp: "{{ states('sensor.24_hour_average_temperature') }}"
+          Förra dygnets medeltemp: "{{ states('sensor.24_hour_average_temperature') | float(0) }}"
           Senast uppdaterad: "{{ now().strftime('%Y-%m-%d %H:%M') }}"
           # Showing counters for debugging/interest
           Vinterdygn: "{{ states('counter.mst_winter_days') }}/5"
@@ -249,7 +250,7 @@ automation:
           - conditions: "{{ winter_c >= 5 }}"
             sequence:
               - variables:
-                  winter_arrival_dt_str: "{{ (now() - timedelta(days=5)).strftime('%Y-%m-%d') }}"
+                  winter_arrival_dt_str: "{{ (now() - timedelta(days=5)) | as_timestamp | timestamp_custom('%Y-%m-%d') }}"
                   # Check if date needs setting (boolean off OR stored date is old)
                   set_winter_date: >-
                     {{ is_state('input_boolean.mst_winter_date_set', 'off') or
@@ -275,9 +276,9 @@ automation:
               - variables:
                   # Calculate potential arrival date object (needed for month/day checks)
                   spring_arrival_dt_obj: "{{ (now() - timedelta(days=7)) }}"
-                  spring_arrival_dt_str: "{{ spring_arrival_dt_obj.strftime('%Y-%m-%d') }}"
+                  spring_arrival_dt_str: "{{ (spring_arrival_dt_obj | as_datetime).strftime('%Y-%m-%d') }}"
                   # Check latest arrival date (must be <= July 31)
-                  latest_spring_ok: "{{ (spring_arrival_dt_obj.month * 100 + spring_arrival_dt_obj.day) <= 731 }}"
+                  latest_spring_ok: "{{ ((spring_arrival_dt_obj | as_datetime).month * 100 + (spring_arrival_dt_obj | as_datetime).day) <= 731 }}"
                   # Check if date needs setting
                   set_spring_date: >-
                     {{ is_state('input_boolean.mst_spring_date_set', 'off') or
@@ -301,7 +302,7 @@ automation:
           - conditions: "{{ summer_c >= 5 }}"
             sequence:
               - variables:
-                  summer_arrival_dt_str: "{{ (now() - timedelta(days=5)).strftime('%Y-%m-%d') }}"
+                  summer_arrival_dt_str: "{{ (now() - timedelta(days=5)) | as_timestamp | timestamp_custom('%Y-%m-%d') }}"
                   # Check if date needs setting
                   set_summer_date: >-
                     {{ is_state('input_boolean.mst_summer_date_set', 'off') or
@@ -327,11 +328,11 @@ automation:
               - variables:
                   # Calculate potential arrival date object
                   autumn_arrival_dt_obj: "{{ (now() - timedelta(days=5)) }}"
-                  autumn_arrival_dt_str: "{{ autumn_arrival_dt_obj.strftime('%Y-%m-%d') }}"
+                  autumn_arrival_dt_str: "{{ autumn_arrival_dt_obj | as_timestamp | timestamp_custom('%Y-%m-%d') }}"
                   # Check latest arrival date (must be >= Aug 1 OR <= Feb 14)
                   latest_autumn_ok: >-
-                    {% set arr_m = autumn_arrival_dt_obj.month %}
-                    {% set arr_d = autumn_arrival_dt_obj.day %}
+                    {% set arr_m = (autumn_arrival_dt_obj | as_datetime).month %}
+                    {% set arr_d = (autumn_arrival_dt_obj | as_datetime).day %}
                     {{ (arr_m >= 8) or (arr_m == 1) or (arr_m == 2 and arr_d <= 14) }}
                   # Check if date needs setting
                   set_autumn_date: >-
