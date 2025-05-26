@@ -1,10 +1,10 @@
-# Meterologisk årstid v 1.0 (Fungerar ej)
+# Meterologisk årstid v 1.1
  
 Denna yaml-fil beräknar den Meterologiska årstiden enligt SMHIs defintion (nedan) baserat på temperaturen där du bor.
 
 <img src="https://github.com/droidgren/home_assistant/blob/main/meteorological_season/brick-card.png">
 <img src="https://github.com/droidgren/home_assistant/blob/main/meteorological_season/entitiy.png">
-
+<img src="https://github.com/droidgren/home_assistant/blob/main/meteorological_season/attribut.png">
 
 ## Installation
 1. Ladda ner och kopiera  (meteorological_season_se.yaml) till mappen /homeassistant/packages   (om du ej har mappen packages får du skapa den först).
