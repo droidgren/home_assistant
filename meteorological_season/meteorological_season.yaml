@@ -93,9 +93,9 @@ template:
           - counter.mst_spring_days
           - counter.mst_summer_days
           - counter.mst_autumn_days
-          - automation.meteorologisk_arstid_berakna_v1_1
+          - automation.meteorologisk_arstid_berakna
     sensor:
-      - name: "Meteorologisk årstid v1.1"
+      - name: "Meteorologisk årstid"
         unique_id: mst_meteorological_season_sensor
         # State based on which season's date is currently marked as set
         state: >
@@ -130,11 +130,11 @@ template:
           Vårdygn: "{{ states('counter.mst_spring_days') }}/7"
           Sommardygn: "{{ states('counter.mst_summer_days') }}/5"
           Höstdygn: "{{ states('counter.mst_autumn_days') }}/5"
-          # Historical arrival dates
-          Vinterns ankomstdatum: "{{ states('input_datetime.mst_winter_arrival_date') if is_state('input_boolean.mst_winter_date_set', 'on') else '' }}"
-          Vårens ankomstdatum: "{{ states('input_datetime.mst_spring_arrival_date') if is_state('input_boolean.mst_spring_date_set', 'on') else '' }}"
-          Sommarens ankomstdatum: "{{ states('input_datetime.mst_summer_arrival_date') if is_state('input_boolean.mst_summer_date_set', 'on') else '' }}"
-          Höstens ankomstdatum: "{{ states('input_datetime.mst_autumn_arrival_date') if is_state('input_boolean.mst_autumn_date_set', 'on') else '' }}"
+          # Historical arrival dates ( Newer than 2 years)
+          Vårens ankomstdatum: "{{ states('input_datetime.mst_spring_arrival_date') if (states('input_datetime.mst_spring_arrival_date') | as_timestamp) > (now() - timedelta(days=730)).timestamp()  else '' }}"
+          Sommarens ankomstdatum: "{{ states('input_datetime.mst_summer_arrival_date') if (states('input_datetime.mst_summer_arrival_date') | as_timestamp) > (now() - timedelta(days=730)).timestamp()  else '' }}"
+          Höstens ankomstdatum: "{{ states('input_datetime.mst_autumn_arrival_date') if (states('input_datetime.mst_autumn_arrival_date') | as_timestamp) > (now() - timedelta(days=730)).timestamp() else '' }}"
+          Vinterns ankomstdatum: "{{ states('input_datetime.mst_winter_arrival_date') if (states('input_datetime.mst_winter_arrival_date') | as_timestamp) > (now() - timedelta(days=730)).timestamp()  else '' }}"
 
         icon: >
           {% if is_state('input_boolean.mst_winter_date_set', 'on') %}
@@ -150,8 +150,8 @@ template:
           {% endif %}
 
 automation:
-  - alias: "Meteorologisk årstid Beräkna v1.1"
-    id: calculate_meteorological_seasons_automation_v1_1
+  - alias: "Meteorologisk årstid Beräkna"
+    id: calculate_meteorological_seasons_automation
     trigger:
       - platform: time
         at: "00:01:00"
