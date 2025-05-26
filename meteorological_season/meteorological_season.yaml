@@ -13,15 +13,15 @@
 # Höst: < 10.0°C, 5 dygn i följd. Ankomst = dag 1. Tidigast ankomst 1 aug, senast ankomst 14 feb.
 
 # OBS! Ersätt sensor.genomsnittlig_utomhus_temp med din egen temperatursensor!
-# sensor:
-  # - platform: statistics
-    # name: "24 Hour Average Temperature"
-    # unique_id: meteorological_season_24_avg_temp_sensor
-    # entity_id: sensor.genomsnittlig_utomhus_temp # <-- ERSÄTT DENNA
-    # state_characteristic: mean
-    # max_age:
-      # hours: 24
-    # precision: 1
+sensor:
+  - platform: statistics
+    name: "24 Hour Average Temperature"
+    entity_id: sensor.genomsnittlig_utomhus_temp  # Ersätt med din temperatursensor 
+    unique_id: meteorological_season_24_avg_temp_sensor
+    state_characteristic: mean
+    max_age:
+      hours: 24
+    precision: 1
 
 input_datetime:
   mst_spring_arrival_date:
