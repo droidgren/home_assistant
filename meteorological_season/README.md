@@ -23,8 +23,8 @@ homeassistant:
 
 ###  Uppdatera datum årstid i efterhand
 1. Om det tex är vår, kolla vilket datum detta inträffade på följande sida: https://www.smhi.se/vader/observationer/ankomstkarta/
-2. Ange datumet i entiten input_datetime.mst_spring_arrival_date (tex 2025-02-21 )
-3. Slå på entiteten input_boolean.mst_spring_date_set
+2. Ange datumet i entiten input_datetime.mst_XXXX_arrival_date (tex 2025-02-21 ) XXXX = Spring, Summer, Autum, Winter
+3. Slå på entiteten input_boolean.mst_XXXX_date_set
 4. Övriga årstidsdatum visas som attribut till entiteten Meterologisk årstid. Om datum för dessa ej är angivna kommer de visa det datum som skripet startade på första gången. Om du ej vet vilket datum årstide inträffade på kan du sätta datummet till 1970-01-01, då kommer datumet inte visas tills det får ett korrekt datum.
 
 
