@@ -1,4 +1,4 @@
-# Meterologisk årstid v 1.0 
+# Meterologisk årstid v 1.0 (Fungerar ej)
  
 Denna yaml-fil beräknar den Meterologiska årstiden enligt SMHIs defintion (nedan) baserat på temperaturen där du bor.
 
