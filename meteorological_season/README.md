@@ -32,6 +32,8 @@ homeassistant:
 - Observera att sensorn endast uppdateras en gång per dygn
 - Som attribut till Meterologisk årstid finns även förra dagens genomsnittstemp, samt historik för tidgare datum då årstider inträffade. 
 <img src="https://github.com/droidgren/home_assistant/blob/main/meteorological_season/attribut.png">
+
+
 ## Defintioner (från SMHI) 
 ### Vinter
 Vintern anländer om det råder vintertemperatur fem dygn i följd. 
