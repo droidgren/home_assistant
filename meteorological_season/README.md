@@ -4,7 +4,7 @@ Denna yaml-fil beräknar den Meterologiska årstiden enligt SMHIs defintion (ned
 
 <img src="https://github.com/droidgren/home_assistant/blob/main/meteorological_season/brick-card.png">
 <img src="https://github.com/droidgren/home_assistant/blob/main/meteorological_season/entitiy.png">
-<img src="https://github.com/droidgren/home_assistant/blob/main/meteorological_season/attribut.png">
+
 
 ## Installation
 1. Ladda ner och kopiera  (meteorological_season_se.yaml) till mappen /homeassistant/packages   (om du ej har mappen packages får du skapa den först).
@@ -31,7 +31,7 @@ homeassistant:
 ### Övrigt
 - Observera att sensorn endast uppdateras en gång per dygn
 - Som attribut till Meterologisk årstid finns även förra dagens genomsnittstemp, samt historik för tidgare datum då årstider inträffade. 
-
+<img src="https://github.com/droidgren/home_assistant/blob/main/meteorological_season/attribut.png">
 ## Defintioner (från SMHI) 
 ### Vinter
 Vintern anländer om det råder vintertemperatur fem dygn i följd. 
