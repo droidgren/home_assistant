@@ -3,7 +3,7 @@
 #  Denna yaml-fil beräknar den Meteorologiska årstiden enligt SMHIs definition baserat på temperaturen där du bor.
 #  Förbättrad logik för nollställning av räknare och datumhantering.
 #
-#  Installation kopiera denna fil till din packages mapp och uppdatera sensorn nedan med din egen utomhustempsensor
+#  Installation kopiera denna fil till din packages mapp och uppdatera sensorn nedan
 #
 
 #Definitioner SMHI https://www.smhi.se/vader/observationer/arstidskarta
@@ -182,6 +182,7 @@ automation:
           is_summer_temp: "{{ average_temp >= 10.0 }}"
           is_spring_potential_temp: "{{ average_temp > 0.0 }}"
           is_autumn_potential_temp: "{{ average_temp < 10.0 }}"
+          
 
           # Date constraint checks (when can a season *progress*?)
           # Spring: Feb 15 to Jul 31
@@ -194,6 +195,8 @@ automation:
             {% set m = now().month %}
             {% set d = now().day %}
             {{ (m >= 8) or (m == 1) or (m == 2 and d <= 14) }}
+            
+          is_summer_period: "{{ is_state('input_boolean.mst_summer_date_set', 'on') }}"
 
       # === Step 3: Update Counters (Increment or Reset Based on Conditions) ===
       # Winter Counter
@@ -213,7 +216,7 @@ automation:
           - service: counter.reset
             target: { entity_id: counter.mst_summer_days }
       # Spring Counter
-      - if: "{{ is_spring_potential_temp and today_is_spring_period }}"
+      - if: "{{ is_spring_potential_temp and today_is_spring_period and not is_summer_period }}"
         then:
           - service: counter.increment
             target: { entity_id: counter.mst_spring_days }
@@ -269,59 +272,7 @@ automation:
                         - input_boolean.mst_spring_date_set
                         - input_boolean.mst_summer_date_set
                         - input_boolean.mst_autumn_date_set
-
-          # --- Spring Arrival Check ---
-          - conditions: "{{ spring_c >= 7 }}"
-            sequence:
-              - variables:
-                  # Calculate potential arrival date object (needed for month/day checks)
-                  spring_arrival_dt_obj: "{{ (now() - timedelta(days=7)) }}"
-                  spring_arrival_dt_str: "{{ (spring_arrival_dt_obj | as_datetime).strftime('%Y-%m-%d') }}"
-                  # Check latest arrival date (must be <= July 31)
-                  latest_spring_ok: "{{ ((spring_arrival_dt_obj | as_datetime).month * 100 + (spring_arrival_dt_obj | as_datetime).day) <= 731 }}"
-                  # Check if date needs setting
-                  set_spring_date: >-
-                    {{ is_state('input_boolean.mst_spring_date_set', 'off') or
-                       (strptime(spring_stored_date_str, '%Y-%m-%d', default=now()).timestamp() < six_months_ago_ts) }}
-              - if: "{{ set_spring_date and latest_spring_ok }}"
-                then:
-                  - service: input_datetime.set_datetime
-                    target: { entity_id: input_datetime.mst_spring_arrival_date }
-                    data: { date: "{{ spring_arrival_dt_str }}" }
-                  - service: input_boolean.turn_on
-                    target: { entity_id: input_boolean.mst_spring_date_set }
-                  # Turn off other season flags
-                  - service: input_boolean.turn_off
-                    target:
-                      entity_id:
-                        - input_boolean.mst_winter_date_set
-                        - input_boolean.mst_summer_date_set
-                        - input_boolean.mst_autumn_date_set
-
-          # --- Summer Arrival Check ---
-          - conditions: "{{ summer_c >= 5 }}"
-            sequence:
-              - variables:
-                  summer_arrival_dt_str: "{{ (now() - timedelta(days=5)) | as_timestamp | timestamp_custom('%Y-%m-%d') }}"
-                  # Check if date needs setting
-                  set_summer_date: >-
-                    {{ is_state('input_boolean.mst_summer_date_set', 'off') or
-                       (strptime(summer_stored_date_str, '%Y-%m-%d', default=now()).timestamp() < six_months_ago_ts) }}
-              - if: "{{ set_summer_date }}"
-                then:
-                  - service: input_datetime.set_datetime
-                    target: { entity_id: input_datetime.mst_summer_arrival_date }
-                    data: { date: "{{ summer_arrival_dt_str }}" }
-                  - service: input_boolean.turn_on
-                    target: { entity_id: input_boolean.mst_summer_date_set }
-                  # Turn off other season flags
-                  - service: input_boolean.turn_off
-                    target:
-                      entity_id:
-                        - input_boolean.mst_winter_date_set
-                        - input_boolean.mst_spring_date_set
-                        - input_boolean.mst_autumn_date_set
-
+                        
           # --- Autumn Arrival Check ---
           - conditions: "{{ autumn_c >= 5 }}"
             sequence:
@@ -351,6 +302,58 @@ automation:
                       entity_id:
                         - input_boolean.mst_winter_date_set
                         - input_boolean.mst_spring_date_set
+                        - input_boolean.mst_summer_date_set        
+                        
+          # --- Summer Arrival Check ---
+          - conditions: "{{ summer_c >= 5 }}"
+            sequence:
+              - variables:
+                  summer_arrival_dt_str: "{{ (now() - timedelta(days=5)) | as_timestamp | timestamp_custom('%Y-%m-%d') }}"
+                  # Check if date needs setting
+                  set_summer_date: >-
+                    {{ is_state('input_boolean.mst_summer_date_set', 'off') or
+                       (strptime(summer_stored_date_str, '%Y-%m-%d', default=now()).timestamp() < six_months_ago_ts) }}
+              - if: "{{ set_summer_date }}"
+                then:
+                  - service: input_datetime.set_datetime
+                    target: { entity_id: input_datetime.mst_summer_arrival_date }
+                    data: { date: "{{ summer_arrival_dt_str }}" }
+                  - service: input_boolean.turn_on
+                    target: { entity_id: input_boolean.mst_summer_date_set }
+                  # Turn off other season flags
+                  - service: input_boolean.turn_off
+                    target:
+                      entity_id:
+                        - input_boolean.mst_winter_date_set
+                        - input_boolean.mst_spring_date_set
+                        - input_boolean.mst_autumn_date_set
+                        
+          # --- Spring Arrival Check ---
+          - conditions: "{{ spring_c >= 7 }}"
+            sequence:
+              - variables:
+                  # Calculate potential arrival date object (needed for month/day checks)
+                  spring_arrival_dt_obj: "{{ (now() - timedelta(days=7)) }}"
+                  spring_arrival_dt_str: "{{ (spring_arrival_dt_obj | as_datetime).strftime('%Y-%m-%d') }}"
+                  # Check latest arrival date (must be <= July 31)
+                  latest_spring_ok: "{{ ((spring_arrival_dt_obj | as_datetime).month * 100 + (spring_arrival_dt_obj | as_datetime).day) <= 731 }}"
+                  # Check if date needs setting
+                  set_spring_date: >-
+                    {{ is_state('input_boolean.mst_spring_date_set', 'off') or
+                       (strptime(spring_stored_date_str, '%Y-%m-%d', default=now()).timestamp() < six_months_ago_ts) }}
+              - if: "{{ set_spring_date and latest_spring_ok }}"
+                then:
+                  - service: input_datetime.set_datetime
+                    target: { entity_id: input_datetime.mst_spring_arrival_date }
+                    data: { date: "{{ spring_arrival_dt_str }}" }
+                  - service: input_boolean.turn_on
+                    target: { entity_id: input_boolean.mst_spring_date_set }
+                  # Turn off other season flags
+                  - service: input_boolean.turn_off
+                    target:
+                      entity_id:
+                        - input_boolean.mst_winter_date_set
                         - input_boolean.mst_summer_date_set
+                        - input_boolean.mst_autumn_date_set
 
     mode: single # Ensure only one instance runs at a time
