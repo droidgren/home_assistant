@@ -21,11 +21,12 @@ homeassistant:
 5.  Nu kommer ett antal räknare och datum entiteter att skapas samt en sensor och automation
 6.  Sensorn "Meterologisk årstid" kommer nu att ange aktuell årstid och datum när detta inträffade.  Observera att det tar 5-7 dagar (beroende på årstid) innan detta kan fastställas.
 
-###  Uppdatera årstid i efterhand
+###  Uppdatera datum årstid i efterhand
 1. Om det tex är vår, kolla vilket datum detta inträffade på följande sida: https://www.smhi.se/vader/observationer/ankomstkarta/
-2. Ange datumet i entiten input_datetime.spring_arrival_date (tex 2025-02-21 )
-3. Slå på entiteten input_boolean.spring_date_set
-4. Sätt räknaren counter.spring_days till 7
+2. Ange datumet i entiten input_datetime.mst_spring_arrival_date (tex 2025-02-21 )
+3. Slå på entiteten input_boolean.mst_spring_date_set
+4. Övriga årstidsdatum visas som attribut till entiteten Meterologisk årstid. Om datum för dessa ej är angivna kommer de visa det datum som skripet startade på första gången. Om du ej vet vilket datum årstide inträffade på kan du sätta datummet till 1970-01-01, då kommer datumet inte visas tills det får ett korrekt datum.
+
 
 ### Övrigt
 - Observera att sensorn endast uppdateras en gång per dygn
