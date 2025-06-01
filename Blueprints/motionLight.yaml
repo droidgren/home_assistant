@@ -1,0 +1,157 @@
+blueprint:
+  name: Motion-activated Light with Conditions, Exceptions, Optional Settings, and Sun Offset
+  description: Turn on lights when motion is detected, with optional brightness and color settings, conditional entity state check, and sun position check with offset.
+  domain: automation
+  input:
+    motion_sensors:
+      name: Motion and Occupancy Sensors
+      description: Select one or more motion or occupancy sensors.
+      selector:
+        entity:
+          domain: binary_sensor
+          device_class:
+            - motion
+            - occupancy
+          multiple: true
+    entity_target:
+      name: Lights and Switches
+      description: Select one or more lights or switches to control.
+      selector:
+        target:
+          entity:
+            domain:
+              - light
+              - switch
+    no_motion_wait:
+      name: Wait Time
+      description: Time to leave the light on after last motion is detected.
+      default: 120
+      selector:
+        number:
+          min: 0
+          max: 3600
+          unit_of_measurement: seconds
+    use_custom_settings:
+      name: Use Custom Brightness and Color
+      description: Enable to use custom brightness and color settings.
+      default: false
+      selector:
+        boolean:
+    brightness:
+      name: Brightness
+      description: Set the brightness level (0-255).
+      default: 255
+      selector:
+        number:
+          min: 0
+          max: 255
+    color:
+      name: Color
+      description: Set the color (in RGB format).
+      default: [255, 255, 255]
+      selector:
+        color_rgb:
+
+    custom_on_actions:
+      name: Custom ON actions
+      description: Custom ON actions...
+      selector:
+        action:
+      default:
+
+    custom_off_actions:
+      name: Custom OFF actions
+      description: Custom OFF actions...
+      selector:
+        action:
+      default:
+
+    additional_conditions:
+      name: Blocking conditions
+      description: |
+        Extra conditions you may want to add to this automation 
+        (Example: Home occupied, TV on, etc)
+      default: []
+      selector:
+        condition:
+
+mode: restart
+max_exceeded: silent
+
+trigger:
+  - platform: state
+    entity_id: !input motion_sensors
+    to: "on"
+
+variables:
+  use_custom_settings: !input use_custom_settings
+  #additional_conditions: !input additional_conditions
+  #blocking_entity: !input blocking_entity
+  #blocking_states: !input blocking_states
+  entity_target: !input entity_target
+
+condition:
+  - condition: and
+    conditions: !input additional_conditions
+
+action:
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ use_custom_settings }}"
+        sequence:
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: "{{ 'light.' in entity_target.entity_id|string }}"
+                sequence:
+                  - service: light.turn_on
+                    target: !input entity_target
+                    data:
+                      brightness: !input brightness
+                      rgb_color: !input color
+              - conditions:
+                  - condition: template
+                    value_template: "{{ 'switch.' in entity_target.entity_id|string }}"
+                sequence:
+                  - service: switch.turn_on
+                    target: !input entity_target
+    default:
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ 'light.' in entity_target.entity_id|string }}"
+            sequence:
+              - service: light.turn_on
+                target: !input entity_target
+          - conditions:
+              - condition: template
+                value_template: "{{ 'switch.' in entity_target.entity_id|string }}"
+            sequence:
+              - service: switch.turn_on
+                target: !input entity_target
+            sequence:
+              - choose: []
+                default: !input custom_on_actions
+
+  - wait_for_trigger:
+      platform: state
+      entity_id: !input motion_sensors
+      to: "off"
+  - delay: !input no_motion_wait
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ 'light.' in entity_target.entity_id|string }}"
+        sequence:
+          - service: light.turn_off
+            target: !input entity_target
+      - conditions:
+          - condition: template
+            value_template: "{{ 'switch.' in entity_target.entity_id|string }}"
+        sequence:
+          - service: switch.turn_off
+            target: !input entity_target
+        sequence:
+          - choose: []
+            default: !input custom_off_actions
