@@ -1,12 +1,10 @@
 blueprint:
   name: Styrbar Remote Control for Lights (Version 2025-09-15)
-  description: >
+  description: |
+    # Styrbar Remote Control for Lights
     Provides integration and control for the IKEA E2001/E2002 Styrbar remote control.
-    
     Allows for turning lights on/off, adjusting brightness, and changing color temperature.
-    
     Designed for a Zigbee2MQTT group of light bulbs.
-    
     Version 2025-09-15
   domain: automation
   input:
