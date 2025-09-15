@@ -144,7 +144,7 @@ action:
             target:
               entity_id: !input light_entity
             data:
-              color_temp_kelvin: "{{ state_attr(light_entity, 'color_temp_kelvin') - 200 }}"
+              color_temp_kelvin: "{{ (state_attr(light_entity, 'color_temp_kelvin') | int(4000)) - 200 }}"
       - conditions:
           - condition: trigger
             id: change_color_left_hold
@@ -155,7 +155,7 @@ action:
                   target:
                     entity_id: !input light_entity
                   data:
-                    color_temp_kelvin: "{{ state_attr(light_entity, 'color_temp_kelvin') - 100 }}"
+                    color_temp_kelvin: "{{ (state_attr(light_entity, 'color_temp_kelvin') | int(4000)) - 100 }}"
                 - delay:
                     milliseconds: !input delay_ms
               until:
@@ -169,7 +169,7 @@ action:
             target:
               entity_id: !input light_entity
             data:
-              color_temp_kelvin: "{{ state_attr(light_entity, 'color_temp_kelvin') + 200 }}"
+              color_temp_kelvin: "{{ (state_attr(light_entity, 'color_temp_kelvin') | int(4000)) + 200 }}"
       - conditions:
           - condition: trigger
             id: change_color_right_hold
@@ -180,7 +180,7 @@ action:
                   target:
                     entity_id: !input light_entity
                   data:
-                    color_temp_kelvin: "{{ state_attr(light_entity, 'color_temp_kelvin') + 100 }}"
+                    color_temp_kelvin: "{{ (state_attr(light_entity, 'color_temp_kelvin') | int(4000)) + 100 }}"
                 - delay:
                     milliseconds: !input delay_ms
               until:
