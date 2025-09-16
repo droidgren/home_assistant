@@ -51,7 +51,7 @@ blueprint:
     default_color_temp:
       name: Default Color Temperature (Kelvin)
       description: "Used as fallback if the light is off or has no color_temp set."
-      default: 4000
+      default: 3000
       selector:
         number:
           min: 1500
@@ -65,7 +65,7 @@ blueprint:
       selector:
         number:
           min: 1500
-          max: 4000
+          max: 10000
           step: 50
           unit_of_measurement: "K"
     max_color_temp:
@@ -74,7 +74,7 @@ blueprint:
       default: 6500
       selector:
         number:
-          min: 5000
+          min: 1500
           max: 10000
           step: 50
           unit_of_measurement: "K"
@@ -85,7 +85,7 @@ blueprint:
       selector:
         number:
           min: 1
-          max: 50
+          max: 100
           step: 1
           unit_of_measurement: "%"
     max_brightness:
@@ -94,7 +94,7 @@ blueprint:
       default: 100
       selector:
         number:
-          min: 50
+          min: 1
           max: 100
           step: 1
           unit_of_measurement: "%"
