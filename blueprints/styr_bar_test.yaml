@@ -21,7 +21,7 @@ blueprint:
     brightness_step:
       name: Brightness Step
       description: "Brightness adjustment step (slider percentage, 1-100%)."
-      default: 5
+      default: 20
       selector:
         number:
           min: 1
