@@ -1,5 +1,5 @@
 blueprint:
-  name: Styrbar Remote Control for Lights (V3.8)
+  name: Styrbar Remote Control for Lights (V3.9)
   description: |
     Provides integration and control for the IKEA E2001/E2002 Styrbar remote control.
 
@@ -196,6 +196,8 @@ action:
           - service: light.turn_off
             target:
               entity_id: !input light_entity
+
+      # Color temp left click
       - conditions:
           - condition: trigger
             id: change_color_left
@@ -209,8 +211,11 @@ action:
                   [
                     (state_attr(light_entity, 'color_temp_kelvin') | int(default_color_temp)) - 200,
                     max_color_temp
-                  ] | min | max(min_color_temp)
+                  ] | min
+                  | max(min_color_temp)
                 }}
+
+      # Color temp left hold
       - conditions:
           - condition: trigger
             id: change_color_left_hold
@@ -226,13 +231,16 @@ action:
                         [
                           (state_attr(light_entity, 'color_temp_kelvin') | int(default_color_temp)) - 100,
                           max_color_temp
-                        ] | min | max(min_color_temp)
+                        ] | min
+                        | max(min_color_temp)
                       }}
                 - delay:
                     milliseconds: !input delay_ms
               until:
                 - condition: trigger
                   id: change_color_left_release
+
+      # Color temp right click
       - conditions:
           - condition: trigger
             id: change_color_right
@@ -246,8 +254,11 @@ action:
                   [
                     (state_attr(light_entity, 'color_temp_kelvin') | int(default_color_temp)) + 200,
                     max_color_temp
-                  ] | min | max(min_color_temp)
+                  ] | min
+                  | max(min_color_temp)
                 }}
+
+      # Color temp right hold
       - conditions:
           - condition: trigger
             id: change_color_right_hold
@@ -263,13 +274,16 @@ action:
                         [
                           (state_attr(light_entity, 'color_temp_kelvin') | int(default_color_temp)) + 100,
                           max_color_temp
-                        ] | min | max(min_color_temp)
+                        ] | min
+                        | max(min_color_temp)
                       }}
                 - delay:
                     milliseconds: !input delay_ms
               until:
                 - condition: trigger
                   id: change_color_right_release
+
+      # Brightness down
       - conditions:
           - condition: trigger
             id: dim_down
@@ -284,8 +298,9 @@ action:
                       {{
                         [
                           ((state_attr(light_entity, 'brightness') | int(255)) / 2.55) | int - brightness_step,
-                          min_brightness
-                        ] | max
+                          max_brightness
+                        ] | min
+                        | max(min_brightness)
                       }}
                     transition: !input transition_seconds
                 - delay:
@@ -293,6 +308,8 @@ action:
               until:
                 - condition: trigger
                   id: dim_stop
+
+      # Brightness up
       - conditions:
           - condition: trigger
             id: dim_up
@@ -309,6 +326,7 @@ action:
                           ((state_attr(light_entity, 'brightness') | int(0)) / 2.55) | int + brightness_step,
                           max_brightness
                         ] | min
+                        | max(min_brightness)
                       }}
                     transition: !input transition_seconds
                 - delay:
