@@ -65,7 +65,7 @@ blueprint:
     min_color_temp:
       name: Minimum Color Temperature (Kelvin)
       description: "Lowest allowed color temperature."
-      default: 2200
+      default: 2000
       selector:
         number:
           min: 1500
