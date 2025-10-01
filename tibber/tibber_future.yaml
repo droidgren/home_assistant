@@ -6,6 +6,11 @@
 # EXPENSIVE: The price is greater or equal to 115 % and smaller than 140 % compared to average price.
 # VERY_EXPENSIVE: The price is greater or equal to 140 % compared to average price.
 
+# This creates two sensors (sensor.tibber_electricity_price and sensor.electricity_price ). 
+# The first contains the RAW-data from tibber API, and the second contains all data from the first and prices levels, as well as some addtional attributes like max, min, and avarage. 
+# I suggest to use the last one (sensor.electricity_price) in your automations, etc. 
+# As default it returns the quaterly prices but also include the average hour price as a separate attribute called totalHour.
+
 sensor:
   - name: Tibber Electricity Price
     unique_id: 0803a6e8-bd6f-4164-9627-4c168f805ce6
@@ -13,7 +18,7 @@ sensor:
     resource: https://api.tibber.com/v1-beta/gql
     method: POST
     scan_interval: 900
-    payload: '{ "query": "{ viewer { homes { currentSubscription { priceInfo { current { total currency level energy tax } today { total startsAt level } tomorrow { total startsAt level }}}}}}" }'
+    payload: '{ "query": "{ viewer { homes { currentSubscription { priceInfo(resolution: QUARTER_HOURLY) { current { total currency level energy tax } today { total startsAt level energy tax } tomorrow { total startsAt level energy tax }}}}}}" }'
     json_attributes_path: "$.data.viewer.homes[0].currentSubscription.priceInfo"
     json_attributes:
       - current
@@ -35,7 +40,26 @@ template:
         availability: "{{ state_attr('sensor.tibber_electricity_price', 'today') | default('unknown') not in ['unknown','unavailable', None] }}"
         state: "{{ this.attributes.current.total | float(0) if this.attributes is defined and this.attributes.current is defined and this.attributes.current.total is defined and is_number(this.attributes.current.total) else None }}"
         attributes:
-          all_prices: "{{ state_attr('sensor.tibber_electricity_price', 'today') | default([]) + state_attr('sensor.tibber_electricity_price', 'tomorrow') | default([]) }}"
+          all_prices: >-
+            {% set prices = state_attr('sensor.tibber_electricity_price', 'today') | default([]) +
+                             state_attr('sensor.tibber_electricity_price', 'tomorrow') | default([]) %}
+            {% set grouped = namespace(result=[]) %}
+            {% for p in prices %}
+              {% set st = as_datetime(p.startsAt) %}
+              {% set curhour = st.replace(minute=0, second=0, microsecond=0) %}
+              {% set nexthour = curhour + timedelta(hours=1) %}
+              {% set hour_prices = prices
+                  | selectattr('startsAt', '>=', curhour.isoformat())
+                  | selectattr('startsAt', '<', nexthour.isoformat())
+                  | map(attribute='total') | list %}
+              {% set avg_hour = (hour_prices | average(0)) if hour_prices | count > 0 else None %}
+              {% if avg_hour is not none %}
+                {% set avg_hour = avg_hour | round(4) %}
+              {% endif %}
+              {% set new = dict(p, **{'totalHour': avg_hour}) %}
+              {% set grouped.result = grouped.result + [new] %}
+            {% endfor %}
+            {{ grouped.result }}
           min_price: "{{ this.attributes.all_prices | map(attribute='total') | list | min if this.attributes.all_prices is defined and this.attributes.all_prices | count > 0 else None }}"
           max_price: "{{ this.attributes.all_prices | map(attribute='total') | list | max if this.attributes.all_prices is defined and this.attributes.all_prices | count > 0 else None }}"
           avg_price: "{{ this.attributes.all_prices | map(attribute='total') | list | average(0) if this.attributes.all_prices is defined and this.attributes.all_prices | count > 1 else this.attributes.max_price | default(None) }}"
@@ -115,4 +139,3 @@ template:
           next_16h: "{{ (this.attributes.future | default([])) | selectattr('startsAt', 'lt', (now() + timedelta(hours=16)).isoformat()) | list if this.attributes.future is defined else [] }}"
           next_16h_min_price: "{{ this.attributes.next_16h | map(attribute='total') | list | min if this.attributes.next_16h is defined and this.attributes.next_16h | count > 0 else None }}"
           next_16h_is_at_min: "{{ (this.state | float(0) <= this.attributes.next_16h_min_price | float(0)) if is_number(this.state) and is_number(this.attributes.next_16h_min_price) else None }}"
-
