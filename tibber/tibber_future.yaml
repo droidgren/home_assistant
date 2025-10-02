@@ -63,7 +63,7 @@ template:
           min_price: "{{ this.attributes.all_prices | map(attribute='total') | list | min if this.attributes.all_prices is defined and this.attributes.all_prices | count > 0 else None }}"
           max_price: "{{ this.attributes.all_prices | map(attribute='total') | list | max if this.attributes.all_prices is defined and this.attributes.all_prices | count > 0 else None }}"
           avg_price: "{{ this.attributes.all_prices | map(attribute='total') | list | average(0) if this.attributes.all_prices is defined and this.attributes.all_prices | count > 1 else this.attributes.max_price | default(None) }}"
-          future: "{{ (this.attributes.all_prices | default([])) | selectattr('startsAt', 'gt', (now() + timedelta(hours=-1)).isoformat()) | list if this.attributes.all_prices is defined else [] }}"
+          future: "{{ (this.attributes.all_prices | default([])) | selectattr('startsAt', 'gt', (now() + timedelta(minutes=-15)).isoformat()) | list if this.attributes.all_prices is defined else [] }}"
           future_min_price: "{{ this.attributes.future | map(attribute='total') | list | min if this.attributes.future is defined and this.attributes.future | count > 0 else None }}"
           future_max_price: "{{ this.attributes.future | map(attribute='total') | list | max if this.attributes.future is defined and this.attributes.future | count > 0 else None }}"
           future_avg_price: "{{ this.attributes.future | map(attribute='total') | list | average(0) if this.attributes.future is defined and this.attributes.future | count > 1 else this.attributes.future_max_price | default(None) }}"
