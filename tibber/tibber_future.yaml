@@ -11,6 +11,8 @@
 # The second contains all data from the first plus prices levels, as well as some addtional attributes like max, min, and avarage. 
 # I suggest to use the last one (sensor.electricity_price) in your automations, etc. 
 # As default it returns the quaterly prices but also include the average hour price as a separate attribute called totalHour.
+# It's recommend to exclude this sensor from recorder history since it will exeed 16kb otherwise it will produce an warning in log.
+# https://www.home-assistant.io/integrations/recorder/
 
 sensor:
   - name: Tibber Electricity Price
