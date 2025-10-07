@@ -11,10 +11,11 @@
 # The second contains all data from the first plus prices levels, as well as some addtional attributes like max, min, and avarage. 
 # I suggest to use the last one (sensor.electricity_price) in your automations, etc. 
 # As default it returns the quaterly prices but also include the average hour price as a separate attribute called totalHour.
-# It's recommend to exclude this sensor from recorder history since it will exceed 16kb and produce an warning in the log.
+# It's recommend to exclude this sensor from recorder history since it will exceed 16kb and produce a warning in the log.
 # https://www.home-assistant.io/integrations/recorder/
 
 sensor:
+  # https://community.home-assistant.io/t/tibber-sensor-for-future-price-tomorrow/253818/23
   - name: Tibber Electricity Price
     unique_id: 0803a6e8-bd6f-4164-9627-4c168f805ce6
     platform: rest
@@ -43,34 +44,10 @@ template:
         availability: "{{ state_attr('sensor.tibber_electricity_price', 'today') | default('unknown') not in ['unknown','unavailable', None] }}"
         state: "{{ this.attributes.current.total | float(0) if this.attributes is defined and this.attributes.current is defined and this.attributes.current.total is defined and is_number(this.attributes.current.total) else None }}"
         attributes:
-          all_prices: >-
-            {% set prices = state_attr('sensor.tibber_electricity_price', 'today') | default([]) +
-                             state_attr('sensor.tibber_electricity_price', 'tomorrow') | default([]) %}
-            {% set grouped = namespace(result=[]) %}
-            {% for p in prices %}
-              {% set st = as_datetime(p.startsAt) %}
-              {% set curhour = st.replace(minute=0, second=0, microsecond=0) %}
-              {% set nexthour = curhour + timedelta(hours=1) %}
-              {% set hour_prices = prices
-                  | selectattr('startsAt', '>=', curhour.isoformat())
-                  | selectattr('startsAt', '<', nexthour.isoformat())
-                  | map(attribute='total') | list %}
-              {% set avg_hour = (hour_prices | average(0)) if hour_prices | count > 0 else None %}
-              {% if avg_hour is not none %}
-                {% set avg_hour = avg_hour | round(4) %}
-              {% endif %}
-              {% set new = dict(p, **{'totalHour': avg_hour}) %}
-              {% set grouped.result = grouped.result + [new] %}
-            {% endfor %}
-            {{ grouped.result }}
+          current: "{{ this.attributes.future | first if this.attributes.future | count > 0 else None }}"
           min_price: "{{ this.attributes.all_prices | map(attribute='total') | list | min if this.attributes.all_prices is defined and this.attributes.all_prices | count > 0 else None }}"
           max_price: "{{ this.attributes.all_prices | map(attribute='total') | list | max if this.attributes.all_prices is defined and this.attributes.all_prices | count > 0 else None }}"
           avg_price: "{{ this.attributes.all_prices | map(attribute='total') | list | average(0) if this.attributes.all_prices is defined and this.attributes.all_prices | count > 1 else this.attributes.max_price | default(None) }}"
-          future: "{{ (this.attributes.all_prices | default([])) | selectattr('startsAt', 'gt', (now() + timedelta(minutes=-15)).isoformat()) | list if this.attributes.all_prices is defined else [] }}"
-          future_min_price: "{{ this.attributes.future | map(attribute='total') | list | min if this.attributes.future is defined and this.attributes.future | count > 0 else None }}"
-          future_max_price: "{{ this.attributes.future | map(attribute='total') | list | max if this.attributes.future is defined and this.attributes.future | count > 0 else None }}"
-          future_avg_price: "{{ this.attributes.future | map(attribute='total') | list | average(0) if this.attributes.future is defined and this.attributes.future | count > 1 else this.attributes.future_max_price | default(None) }}"
-          current: "{{ this.attributes.future | first if this.attributes.future | count > 0 else None }}"
           price_level: "{{ this.attributes.current.level | default('unknown') | replace('_', ' ') | capitalize if this.attributes.current is defined and this.attributes.current.level is defined else None }}"
           price_level_1d: >-
             {% set price_cur = this.state | default(0) | float(0) %}
@@ -120,6 +97,9 @@ template:
           is_at_min: "{{ (this.state | float(0) <= this.attributes.min_price | float(0)) if is_number(this.state) and is_number(this.attributes.min_price) else None }}"
           is_at_max: "{{ (this.state | float(0) >= this.attributes.max_price | float(0)) if is_number(this.state) and is_number(this.attributes.max_price) else None }}"
           is_close_to_min: "{{ (this.state | float(0) <= (1.15 * this.attributes.min_price | float(0))) if is_number(this.state) and is_number(this.attributes.min_price) else None }}"
+          future_min_price: "{{ this.attributes.future | map(attribute='total') | list | min if this.attributes.future is defined and this.attributes.future | count > 0 else None }}"
+          future_max_price: "{{ this.attributes.future | map(attribute='total') | list | max if this.attributes.future is defined and this.attributes.future | count > 0 else None }}"
+          future_avg_price: "{{ this.attributes.future | map(attribute='total') | list | average(0) if this.attributes.future is defined and this.attributes.future | count > 1 else this.attributes.future_max_price | default(None) }}"
           future_price_level: >-
             {% set price_cur = this.state | default(0) | float(0) %}
             {% set price_avg = this.attributes.future_avg_price | default(0) | float(0) %}
@@ -138,7 +118,28 @@ template:
               {% else %}
                 Normal
               {% endif %}
-            {% endif %}
+            {% endif %}          
+          all_prices: >-
+            {% set prices = state_attr('sensor.tibber_electricity_price', 'today') | default([]) +
+                             state_attr('sensor.tibber_electricity_price', 'tomorrow') | default([]) %}
+            {% set grouped = namespace(result=[]) %}
+            {% for p in prices %}
+              {% set st = as_datetime(p.startsAt) %}
+              {% set curhour = st.replace(minute=0, second=0, microsecond=0) %}
+              {% set nexthour = curhour + timedelta(hours=1) %}
+              {% set hour_prices = prices
+                  | selectattr('startsAt', '>=', curhour.isoformat())
+                  | selectattr('startsAt', '<', nexthour.isoformat())
+                  | map(attribute='total') | list %}
+              {% set avg_hour = (hour_prices | average(0)) if hour_prices | count > 0 else None %}
+              {% if avg_hour is not none %}
+                {% set avg_hour = avg_hour | round(4) %}
+              {% endif %}
+              {% set new = dict(p, **{'totalHour': avg_hour}) %}
+              {% set grouped.result = grouped.result + [new] %}
+            {% endfor %}
+            {{ grouped.result }}
+          future: "{{ (this.attributes.all_prices | default([])) | selectattr('startsAt', 'gt', (now() + timedelta(minutes=-15)).isoformat()) | list if this.attributes.all_prices is defined else [] }}"
 #          next_16h: "{{ (this.attributes.future | default([])) | selectattr('startsAt', 'lt', (now() + timedelta(hours=16)).isoformat()) | list if this.attributes.future is defined else [] }}"
 #          next_16h_min_price: "{{ this.attributes.next_16h | map(attribute='total') | list | min if this.attributes.next_16h is defined and this.attributes.next_16h | count > 0 else None }}"
 #          next_16h_is_at_min: "{{ (this.state | float(0) <= this.attributes.next_16h_min_price | float(0)) if is_number(this.state) and is_number(this.attributes.next_16h_min_price) else None }}"
