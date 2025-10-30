@@ -1,9 +1,11 @@
 blueprint:
-  name: Shelly Dimmer Virtual Light Controller v1.1
+  name: Shelly Dimmer Virtual Light Controller (Continuous Hold)
   description: >
     Use a Shelly Dimmer 2 as a virtual dimmer to control another smart light.
-    Single click toggles, double click sets full brightness,
-    long press brightens, and long release dims.
+    - Single click toggles
+    - Double click sets full brightness
+    - Long press: continuously brighten while held
+    - Long release: stop hold (and can be used to continuously dim if configured)
 
   domain: automation
   input:
@@ -21,22 +23,33 @@ blueprint:
         entity:
           domain: light
 
+    hold_helper:
+      name: Hold helper (input_boolean)
+      description: "Input boolean used as a flag while the Shelly button is held. Create a toggle helper in Settings → Helpers if you don't have one."
+      selector:
+        entity:
+          domain: input_boolean
+
     brightness_step:
       name: Brightness Step (%)
-      default: 5
+      description: Step size for dimming/brightening per loop iteration
+      default: 3
       selector:
         number:
           min: 1
-          max: 20
+          max: 50
+          step: 1
           unit_of_measurement: "%"
 
     step_interval:
       name: Step Interval (ms)
-      default: 200
+      description: Delay between brightness steps while holding (lower = faster)
+      default: 150
       selector:
         number:
           min: 50
           max: 1000
+          step: 25
           unit_of_measurement: "ms"
 
 mode: restart
@@ -46,6 +59,7 @@ variables:
   step_pct: !input brightness_step
   step_ms: !input step_interval
   shelly_device_id: !input shelly_device
+  hold_flag: !input hold_helper
 
 trigger:
   - platform: event
@@ -53,6 +67,7 @@ trigger:
 
 condition:
   - condition: template
+    # only react to events from the selected device
     value_template: "{{ trigger.event.data.device_id == shelly_device_id }}"
 
 action:
@@ -77,24 +92,38 @@ action:
             data:
               brightness_pct: 100
 
-      # LONG PRESS → INCREASE BRIGHTNESS
+      # LONG PRESS → START HOLD (continuous brighten)
       - conditions:
           - condition: template
             value_template: "{{ trigger.event.data.click_type == 'long' }}"
         sequence:
-          - service: light.turn_on
+          # set helper ON so the repeat loop can check it
+          - service: input_boolean.turn_on
+            data: {}
             target:
-              entity_id: "{{ light_target }}"
-            data:
-              brightness_step_pct: "{{ step_pct }}"
+              entity_id: "{{ hold_flag }}"
 
-      # LONG RELEASE → DECREASE BRIGHTNESS
+          # Repeat while hold helper is ON
+          - repeat:
+              while:
+                - condition: state
+                  entity_id: "{{ hold_flag }}"
+                  state: "on"
+              sequence:
+                - service: light.turn_on
+                  target:
+                    entity_id: "{{ light_target }}"
+                  data:
+                    brightness_step_pct: "{{ step_pct }}"
+                - delay:
+                    milliseconds: "{{ step_ms }}"
+
+      # LONG RELEASE → STOP HOLD (will cause the above loop to exit)
       - conditions:
           - condition: template
             value_template: "{{ trigger.event.data.click_type == 'long_release' }}"
         sequence:
-          - service: light.turn_on
+          - service: input_boolean.turn_off
+            data: {}
             target:
-              entity_id: "{{ light_target }}"
-            data:
-              brightness_step_pct: "-{{ step_pct }}"
+              entity_id: "{{ hold_flag }}"
