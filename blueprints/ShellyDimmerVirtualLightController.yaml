@@ -1,0 +1,108 @@
+blueprint:
+  name: Shelly Dimmer Virtual Light Controller
+  description: >
+    Use a Shelly Dimmer 2 as a virtual dimmer to control another smart light via input events.
+    - Single click toggles the light
+    - Long press brightens
+    - Release dims
+    - Optional double click sets full brightness
+
+  domain: automation
+  input:
+    shelly_device:
+      name: Shelly Device
+      description: Select the Shelly Dimmer device
+      selector:
+        device:
+          integration: shelly
+
+    target_light:
+      name: Target Light
+      description: The light to control
+      selector:
+        target:
+          entity:
+            domain: light
+
+    brightness_step:
+      name: Brightness Step (%)
+      description: Step size for dimming/brightening per loop iteration
+      default: 5
+      selector:
+        number:
+          min: 1
+          max: 20
+          unit_of_measurement: "%"
+
+    step_interval:
+      name: Step Interval (ms)
+      description: How quickly to step brightness when holding
+      default: 200
+      selector:
+        number:
+          min: 50
+          max: 1000
+          unit_of_measurement: "ms"
+
+mode: restart
+
+variables:
+  light_target: !input target_light
+  step_pct: !input brightness_step
+  step_ms: !input step_interval
+
+trigger:
+  - platform: event
+    event_type: shelly.click
+    event_data:
+      device: !input shelly_device
+
+action:
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.event.data.click_type == 'single' }}"
+        sequence:
+          - service: light.toggle
+            target: "{{ light_target }}"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.event.data.click_type == 'double' }}"
+        sequence:
+          - service: light.turn_on
+            target: "{{ light_target }}"
+            data:
+              brightness_pct: 100
+
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.event.data.click_type == 'long' }}"
+        sequence:
+          - repeat:
+              while:
+                - condition: template
+                  value_template: "{{ trigger.event.data.click_type == 'long' }}"
+              sequence:
+                - service: light.turn_on
+                  target: "{{ light_target }}"
+                  data:
+                    brightness_step_pct: "{{ step_pct }}"
+                - delay:
+                    milliseconds: "{{ step_ms }}"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.event.data.click_type == 'long_release' }}"
+        sequence:
+          - repeat:
+              while:
+                - condition: template
+                  value_template: "{{ trigger.event.data.click_type == 'long_release' }}"
+              sequence:
+                - service: light.turn_on
+                  target: "{{ light_target }}"
+                  data:
+                    brightness_step_pct: "-{{ step_pct }}"
+                - delay:
+                    milliseconds: "{{ step_ms }}"
