@@ -1,8 +1,8 @@
 blueprint:
-  name: Continuous Dimming Loop
+  name: Continuous Dimming Loop 2
   description: >
-    Reusable script for continuous dimming (hold to brighten or dim).  
-    Designed for button-hold dimming logic. Call it on hold, stop it on release.
+    Reusable script for continuous dimming (hold to brighten or dim).
+    Designed to be called from automations (e.g. Shelly, Zigbee, etc.)
   domain: script
   author: HomeAssistant Helper GPT-5
 
@@ -62,22 +62,30 @@ blueprint:
 mode: restart
 
 sequence:
+  - variables:
+      entity: !input light_entity
+      direction: !input direction
+      step: !input step
+      delay_ms: !input delay
+      min_brightness: !input min_brightness
+      max_brightness: !input max_brightness
+
   - repeat:
       while: []
       sequence:
         - service: light.turn_on
           target:
-            entity_id: !input light_entity
+            entity_id: "{{ entity }}"
           data:
             brightness_pct: >-
               {{
                 [
                   [
-                    ((state_attr(light_entity, 'brightness') | int(0)) / 2.55) | int + (step * direction),
+                    ((state_attr(entity, 'brightness') | int(0)) / 2.55) | int + (step * direction),
                     max_brightness
                   ] | min,
                   min_brightness
                 ] | max
               }}
         - delay:
-            milliseconds: !input delay
+            milliseconds: "{{ delay_ms }}"
