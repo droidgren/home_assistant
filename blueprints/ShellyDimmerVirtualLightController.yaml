@@ -1,49 +1,40 @@
 blueprint:
-  name: Shelly Dimmer Virtual Light Controller (Continuous Hold)
+  name: Shelly Dimmer Virtual Light Controller (Continuous Hold, No Helper)
   description: >
     Use a Shelly Dimmer 2 as a virtual dimmer to control another smart light.
     - Single click toggles
     - Double click sets full brightness
-    - Long press: continuously brighten while held
-    - Long release: stop hold (and can be used to continuously dim if configured)
+    - Hold to brighten continuously
+    - Release stops dimming
 
   domain: automation
   input:
     shelly_device:
       name: Shelly Device
-      description: Select the Shelly Dimmer device to listen for input events
+      description: Select the Shelly Dimmer device
       selector:
         device:
           integration: shelly
 
     target_light:
       name: Target Light
-      description: The light to be controlled
+      description: Light to control
       selector:
         entity:
           domain: light
 
-    hold_helper:
-      name: Hold helper (input_boolean)
-      description: "Input boolean used as a flag while the Shelly button is held. Create a toggle helper in Settings → Helpers if you don't have one."
-      selector:
-        entity:
-          domain: input_boolean
-
     brightness_step:
       name: Brightness Step (%)
-      description: Step size for dimming/brightening per loop iteration
       default: 3
       selector:
         number:
           min: 1
-          max: 50
+          max: 20
           step: 1
           unit_of_measurement: "%"
 
-    step_interval:
-      name: Step Interval (ms)
-      description: Delay between brightness steps while holding (lower = faster)
+    delay_ms:
+      name: Delay between steps (ms)
       default: 150
       selector:
         number:
@@ -52,78 +43,119 @@ blueprint:
           step: 25
           unit_of_measurement: "ms"
 
+    min_brightness:
+      name: Minimum Brightness (%)
+      default: 5
+      selector:
+        number:
+          min: 1
+          max: 50
+          step: 1
+          unit_of_measurement: "%"
+
+    max_brightness:
+      name: Maximum Brightness (%)
+      default: 100
+      selector:
+        number:
+          min: 50
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+
+    transition_seconds:
+      name: Transition Seconds
+      default: 0.2
+      selector:
+        number:
+          min: 0
+          max: 2
+          step: 0.1
+          unit_of_measurement: "s"
+
 mode: restart
 
 variables:
-  light_target: !input target_light
-  step_pct: !input brightness_step
-  step_ms: !input step_interval
+  light_entity: !input target_light
+  step: !input brightness_step
+  delay: !input delay_ms
+  min_brightness: !input min_brightness
+  max_brightness: !input max_brightness
+  transition: !input transition_seconds
   shelly_device_id: !input shelly_device
-  hold_flag: !input hold_helper
 
 trigger:
   - platform: event
     event_type: shelly.click
+    id: single
+    event_data:
+      click_type: single
+  - platform: event
+    event_type: shelly.click
+    id: double
+    event_data:
+      click_type: double
+  - platform: event
+    event_type: shelly.click
+    id: long
+    event_data:
+      click_type: long
+  - platform: event
+    event_type: shelly.click
+    id: long_release
+    event_data:
+      click_type: long_release
 
 condition:
   - condition: template
-    # only react to events from the selected device
     value_template: "{{ trigger.event.data.device_id == shelly_device_id }}"
 
 action:
   - choose:
-      # SINGLE CLICK → TOGGLE
+      # --- SINGLE CLICK ---
       - conditions:
-          - condition: template
-            value_template: "{{ trigger.event.data.click_type == 'single' }}"
+          - condition: trigger
+            id: single
         sequence:
           - service: light.toggle
             target:
-              entity_id: "{{ light_target }}"
+              entity_id: "{{ light_entity }}"
 
-      # DOUBLE CLICK → FULL BRIGHTNESS
+      # --- DOUBLE CLICK ---
       - conditions:
-          - condition: template
-            value_template: "{{ trigger.event.data.click_type == 'double' }}"
+          - condition: trigger
+            id: double
         sequence:
           - service: light.turn_on
             target:
-              entity_id: "{{ light_target }}"
+              entity_id: "{{ light_entity }}"
             data:
               brightness_pct: 100
 
-      # LONG PRESS → START HOLD (continuous brighten)
+      # --- HOLD (CONTINUOUS BRIGHTEN) ---
       - conditions:
-          - condition: template
-            value_template: "{{ trigger.event.data.click_type == 'long' }}"
+          - condition: trigger
+            id: long
         sequence:
-          # set helper ON so the repeat loop can check it
-          - service: input_boolean.turn_on
-            data: {}
-            target:
-              entity_id: "{{ hold_flag }}"
-
-          # Repeat while hold helper is ON
           - repeat:
-              while:
-                - condition: state
-                  entity_id: "{{ hold_flag }}"
-                  state: "on"
               sequence:
                 - service: light.turn_on
                   target:
-                    entity_id: "{{ light_target }}"
+                    entity_id: "{{ light_entity }}"
                   data:
-                    brightness_step_pct: "{{ step_pct }}"
+                    brightness_pct: >-
+                      {{
+                        [
+                          [
+                            ((state_attr(light_entity, 'brightness') | int(0)) / 2.55) | int + step,
+                            max_brightness
+                          ] | min,
+                          min_brightness
+                        ] | max
+                      }}
+                    transition: "{{ transition }}"
                 - delay:
-                    milliseconds: "{{ step_ms }}"
-
-      # LONG RELEASE → STOP HOLD (will cause the above loop to exit)
-      - conditions:
-          - condition: template
-            value_template: "{{ trigger.event.data.click_type == 'long_release' }}"
-        sequence:
-          - service: input_boolean.turn_off
-            data: {}
-            target:
-              entity_id: "{{ hold_flag }}"
+                    milliseconds: "{{ delay }}"
+              until:
+                - condition: trigger
+                  id: long_release
