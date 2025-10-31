@@ -1,5 +1,5 @@
 blueprint:
-  name: Shelly Dimmer 2 Virtual Light Controller 2
+  name: Shelly Dimmer 2 Virtual Light Controller 3
   description: >
     Control another light using a Shelly Dimmer 2.  
     - Single click → toggle  
@@ -130,8 +130,8 @@ action:
               entity_id: "{{ dim_script }}"
           - variables:
               new_direction: "{{ direction * -1 }}"
-          - service: automation.update_entity
-            target:
+          - service: 
+            target: homeassistant.update_entity
               entity_id: "{{ this.entity_id }}"
           - service: logbook.log
             data:
