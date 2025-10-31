@@ -1,27 +1,33 @@
 blueprint:
-  name: Shelly Dimmer 2 Virtual Light Controller (Continuous Hold)
+  name: Shelly Dimmer 2 Virtual Light Controller 2
   description: >
-    Use a Shelly Dimmer 2 switch to control another light via events.
-    - Single click: toggle
-    - Double click: full brightness
-    - Hold: continuous dimming
-    - Release: stop dimming and reverse direction next time
+    Control another light using a Shelly Dimmer 2.  
+    - Single click → toggle  
+    - Double click → full brightness  
+    - Hold → continuous dim (via script blueprint)  
+    - Release → stop + reverse direction  
   domain: automation
   author: HomeAssistant Helper GPT-5
+
   input:
     shelly_device:
       name: Shelly Device
-      description: Select your Shelly Dimmer 2 device
       selector:
         device:
           integration: shelly
 
     target_light:
       name: Target Light
-      description: The light to control
       selector:
         entity:
           domain: light
+
+    dimming_script:
+      name: Continuous Dimming Script
+      description: Select the script created from the "Continuous Dimming Loop" blueprint
+      selector:
+        entity:
+          domain: script
 
     brightness_step:
       name: Brightness Step (%)
@@ -46,9 +52,9 @@ mode: restart
 variables:
   light_entity: !input target_light
   shelly_device_id: !input shelly_device
+  dim_script: !input dimming_script
   step: !input brightness_step
   delay: !input delay_ms
-  # Store direction (persisted via attributes)
   direction: "{{ this.attributes.get('direction', 1) | int }}"  # 1 = up, -1 = down
 
 trigger:
@@ -99,14 +105,14 @@ action:
             data:
               brightness_pct: 100
 
-      # ───── LONG PRESS: start dimming ─────
+      # ───── LONG PRESS: start dimming via script ─────
       - conditions:
           - condition: trigger
             id: long
         sequence:
           - service: script.turn_on
             target:
-              entity_id: script.shelly_dimmer_hold
+              entity_id: "{{ dim_script }}"
             data:
               variables:
                 light_entity: "{{ light_entity }}"
@@ -121,8 +127,7 @@ action:
         sequence:
           - service: script.turn_off
             target:
-              entity_id: script.shelly_dimmer_hold
-          # flip dim direction
+              entity_id: "{{ dim_script }}"
           - variables:
               new_direction: "{{ direction * -1 }}"
           - service: automation.update_entity
