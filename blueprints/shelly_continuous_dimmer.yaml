@@ -1,15 +1,14 @@
 blueprint:
   name: Continuous Dimming Loop
   description: >
-    Reusable script for continuous dimming (hold to brighten/dim).
-    Call this from an automation when a button is held, and stop it on release.
+    Reusable script for continuous dimming (hold to brighten or dim).  
+    Designed for button-hold dimming logic. Call it on hold, stop it on release.
   domain: script
   author: HomeAssistant Helper GPT-5
 
   input:
     light_entity:
       name: Target Light
-      description: The light entity to dim.
       selector:
         entity:
           domain: light
