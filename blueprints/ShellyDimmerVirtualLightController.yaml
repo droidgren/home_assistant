@@ -130,8 +130,8 @@ action:
               entity_id: "{{ dim_script }}"
           - variables:
               new_direction: "{{ direction * -1 }}"
-          - service: 
-            target: homeassistant.update_entity
+          - service: homeassistant.update_entity
+            target: 
               entity_id: "{{ this.entity_id }}"
           - service: logbook.log
             data:
