@@ -1,46 +1,42 @@
 blueprint:
-  name: Shelly Dimmer Virtual Light Controller (Continuous Hold, No Helper)
+  name: Shelly Dimmer Virtual Light Controller (Continuous Hold, Toggle Direction)
   description: >
-    Use a Shelly Dimmer 2 as a virtual dimmer to control another smart light.
+    Use a Shelly Dimmer 2 as a virtual dimmer for another smart light.
     - Single click toggles
     - Double click sets full brightness
-    - Hold to brighten continuously
-    - Release stops dimming
+    - Hold continuously changes brightness (up/down alternating)
+    - Release stops dimming and reverses next direction
 
   domain: automation
   input:
     shelly_device:
       name: Shelly Device
-      description: Select the Shelly Dimmer device
       selector:
         device:
           integration: shelly
 
     target_light:
       name: Target Light
-      description: Light to control
       selector:
         entity:
           domain: light
 
     brightness_step:
       name: Brightness Step (%)
-      default: 3
+      default: 4
       selector:
         number:
           min: 1
           max: 20
-          step: 1
           unit_of_measurement: "%"
 
     delay_ms:
-      name: Delay between steps (ms)
-      default: 150
+      name: Delay Between Steps (ms)
+      default: 120
       selector:
         number:
           min: 50
           max: 1000
-          step: 25
           unit_of_measurement: "ms"
 
     min_brightness:
@@ -50,7 +46,6 @@ blueprint:
         number:
           min: 1
           max: 50
-          step: 1
           unit_of_measurement: "%"
 
     max_brightness:
@@ -60,18 +55,7 @@ blueprint:
         number:
           min: 50
           max: 100
-          step: 1
           unit_of_measurement: "%"
-
-    transition_seconds:
-      name: Transition Seconds
-      default: 0.2
-      selector:
-        number:
-          min: 0
-          max: 2
-          step: 0.1
-          unit_of_measurement: "s"
 
 mode: restart
 
@@ -81,8 +65,8 @@ variables:
   delay: !input delay_ms
   min_brightness: !input min_brightness
   max_brightness: !input max_brightness
-  transition: !input transition_seconds
   shelly_device_id: !input shelly_device
+  direction: "{{ this.attributes.get('direction', 1) | int }}"  # 1=up, -1=down
 
 trigger:
   - platform: event
@@ -132,7 +116,7 @@ action:
             data:
               brightness_pct: 100
 
-      # --- HOLD (CONTINUOUS BRIGHTEN) ---
+      # --- HOLD: CONTINUOUS DIM ---
       - conditions:
           - condition: trigger
             id: long
@@ -147,15 +131,31 @@ action:
                       {{
                         [
                           [
-                            ((state_attr(light_entity, 'brightness') | int(0)) / 2.55) | int + step,
+                            ((state_attr(light_entity, 'brightness') | int(0)) / 2.55) | int + (step * direction),
                             max_brightness
                           ] | min,
                           min_brightness
                         ] | max
                       }}
-                    transition: "{{ transition }}"
                 - delay:
                     milliseconds: "{{ delay }}"
               until:
-                - condition: trigger
-                  id: long_release
+                - condition: template
+                  value_template: "{{ wait.trigger.id == 'long_release' }}"
+          - stop: true
+
+      # --- RELEASE: STOP + TOGGLE DIRECTION ---
+      - conditions:
+          - condition: trigger
+            id: long_release
+        sequence:
+          # Flip direction (+1 → -1 → +1)
+          - variables:
+              new_direction: "{{ direction * -1 }}"
+          - service: automation.update_entity
+            target:
+              entity_id: "{{ this.entity_id }}"
+          - service: persistent_notification.create
+            data:
+              title: "Shelly Dimmer Debug"
+              message: "Next dim direction: {{ 'up' if new_direction == 1 else 'down' }}"
