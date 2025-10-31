@@ -1,22 +1,24 @@
 blueprint:
-  name: Shelly Dimmer Virtual Light Controller (Continuous Hold, Toggle Direction)
+  name: Shelly Dimmer 2 Virtual Light Controller (Continuous Hold)
   description: >
-    Use a Shelly Dimmer 2 as a virtual dimmer for another smart light.
-    - Single click toggles
-    - Double click sets full brightness
-    - Hold continuously changes brightness (up/down alternating)
-    - Release stops dimming and reverses next direction
-
+    Use a Shelly Dimmer 2 switch to control another light via events.
+    - Single click: toggle
+    - Double click: full brightness
+    - Hold: continuous dimming
+    - Release: stop dimming and reverse direction next time
   domain: automation
+  author: HomeAssistant Helper GPT-5
   input:
     shelly_device:
       name: Shelly Device
+      description: Select your Shelly Dimmer 2 device
       selector:
         device:
           integration: shelly
 
     target_light:
       name: Target Light
+      description: The light to control
       selector:
         entity:
           domain: light
@@ -39,34 +41,15 @@ blueprint:
           max: 1000
           unit_of_measurement: "ms"
 
-    min_brightness:
-      name: Minimum Brightness (%)
-      default: 5
-      selector:
-        number:
-          min: 1
-          max: 50
-          unit_of_measurement: "%"
-
-    max_brightness:
-      name: Maximum Brightness (%)
-      default: 100
-      selector:
-        number:
-          min: 50
-          max: 100
-          unit_of_measurement: "%"
-
 mode: restart
 
 variables:
   light_entity: !input target_light
+  shelly_device_id: !input shelly_device
   step: !input brightness_step
   delay: !input delay_ms
-  min_brightness: !input min_brightness
-  max_brightness: !input max_brightness
-  shelly_device_id: !input shelly_device
-  direction: "{{ this.attributes.get('direction', 1) | int }}"  # 1=up, -1=down
+  # Store direction (persisted via attributes)
+  direction: "{{ this.attributes.get('direction', 1) | int }}"  # 1 = up, -1 = down
 
 trigger:
   - platform: event
@@ -96,7 +79,7 @@ condition:
 
 action:
   - choose:
-      # --- SINGLE CLICK ---
+      # ───── SINGLE CLICK ─────
       - conditions:
           - condition: trigger
             id: single
@@ -105,7 +88,7 @@ action:
             target:
               entity_id: "{{ light_entity }}"
 
-      # --- DOUBLE CLICK ---
+      # ───── DOUBLE CLICK ─────
       - conditions:
           - condition: trigger
             id: double
@@ -116,46 +99,36 @@ action:
             data:
               brightness_pct: 100
 
-      # --- HOLD: CONTINUOUS DIM ---
+      # ───── LONG PRESS: start dimming ─────
       - conditions:
           - condition: trigger
             id: long
         sequence:
-          - repeat:
-              sequence:
-                - service: light.turn_on
-                  target:
-                    entity_id: "{{ light_entity }}"
-                  data:
-                    brightness_pct: >-
-                      {{
-                        [
-                          [
-                            ((state_attr(light_entity, 'brightness') | int(0)) / 2.55) | int + (step * direction),
-                            max_brightness
-                          ] | min,
-                          min_brightness
-                        ] | max
-                      }}
-                - delay:
-                    milliseconds: "{{ delay }}"
-              until:
-                - condition: template
-                  value_template: "{{ wait.trigger.id == 'long_release' }}"
-          - stop: true
+          - service: script.turn_on
+            target:
+              entity_id: script.shelly_dimmer_hold
+            data:
+              variables:
+                light_entity: "{{ light_entity }}"
+                step: "{{ step }}"
+                delay: "{{ delay }}"
+                direction: "{{ direction }}"
 
-      # --- RELEASE: STOP + TOGGLE DIRECTION ---
+      # ───── RELEASE: stop + flip direction ─────
       - conditions:
           - condition: trigger
             id: long_release
         sequence:
-          # Flip direction (+1 → -1 → +1)
+          - service: script.turn_off
+            target:
+              entity_id: script.shelly_dimmer_hold
+          # flip dim direction
           - variables:
               new_direction: "{{ direction * -1 }}"
           - service: automation.update_entity
             target:
               entity_id: "{{ this.entity_id }}"
-          - service: persistent_notification.create
+          - service: logbook.log
             data:
-              title: "Shelly Dimmer Debug"
+              name: "Shelly Dimmer"
               message: "Next dim direction: {{ 'up' if new_direction == 1 else 'down' }}"
