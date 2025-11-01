@@ -1,0 +1,122 @@
+blueprint:
+  name: Shelly Dimmer - Virtual Hold-to-Dim Controller
+  description: >-
+    Press and hold the Shelly Dimmer 2 button to continuously dim a light.
+    - Press & Hold: Start dimming (reads direction from helper)
+    - Release: Stop dimming
+    
+    This blueprint is part 2 of 2. It requires the 'Virtual Click Controller'
+    and a shared 'input_boolean' helper.
+    
+    **IMPORTANT:** You must use the 'binary_sensor' entity for the switch input,
+    NOT the device trigger.
+
+  domain: automation
+  input:
+    shelly_switch_input:
+      name: Shelly Switch Input Sensor
+      description: The binary_sensor for the Shelly's switch input (e.g., binary_sensor.shelly_dimmer_switch_0).
+      selector:
+        entity:
+          domain: binary_sensor
+          integration: shelly
+          device_class: switch
+
+    target_light:
+      name: Target Light
+      description: The light entity or group to dim.
+      selector:
+        entity:
+          domain: light
+
+    dim_direction_helper:
+      name: Dim Direction Helper
+      description: The *same* (input_boolean) helper used in the Click Controller.
+      selector:
+        entity:
+          domain: input_boolean
+    
+    dim_step_pct:
+      name: Dim Step Percentage
+      description: The percentage to step up/down on each dimming interval.
+      default: 10
+      selector:
+        number:
+          min: 1
+          max: 25
+          unit_of_measurement: "%"
+          mode: slider
+
+    dim_wait_time:
+      name: Dim Step Delay (ms)
+      description: The time in milliseconds between each dimming step.
+      default: 400
+      selector:
+        number:
+          min: 100
+          max: 1000
+          unit_of_measurement: "ms"
+          mode: slider
+
+# 'restart' mode ensures that if you release and press again quickly,
+# the automation restarts, stopping the old dimming loop.
+mode: restart
+
+# Trigger when the button is PRESSED (state goes from 'off' to 'on')
+trigger:
+  - platform: state
+    entity_id: !input shelly_switch_input
+    from: "off"
+    to: "on"
+
+action:
+  # Choose the dimming direction based on the helper
+  - choose:
+      # --- Direction: DIM UP (Helper is 'on') ---
+      - conditions:
+          - condition: state
+            entity_id: !input dim_direction_helper
+            state: "on"
+        sequence:
+          # Start a loop that repeats...
+          - repeat:
+              # ...until the button is RELEASED (sensor goes to 'off')
+              until:
+                - condition: state
+                  entity_id: !input shelly_switch_input
+                  state: "off"
+              # Action to repeat
+              sequence:
+                - service: light.turn_on
+                  target:
+                    entity_id: !input target_light
+                  data:
+                    brightness_step_pct: !input dim_step_pct
+                    transition: 0.3
+                - delay:
+                    milliseconds: !input dim_wait_time
+
+      # --- Direction: DIM DOWN (Helper is 'off') ---
+      - conditions:
+          - condition: state
+            entity_id: !input dim_direction_helper
+            state: "off"
+        sequence:
+          # Start a loop that repeats...
+          - repeat:
+              # ...until the button is RELEASED (sensor goes to 'off')
+              until:
+                - condition: state
+                  entity_id: !input shelly_switch_input
+                  state: "off"
+              # Action to repeat
+              sequence:
+                - service: light.turn_on
+                  target:
+                    entity_id: !input target_light
+                  data:
+                    # Use a negative value to dim down
+                    brightness_step_pct: "{{ -1 * (dim_step_pct | int) }}"
+                    transition: 0.3
+                - delay:
+                    milliseconds: !input dim_wait_time
