@@ -1,8 +1,7 @@
 blueprint:
-  name: Shelly Virtual Dimmer Controller (Shelly Dimmer 2)
+  name: Shelly Virtual Dimmer Controller (Final)
   description: >
-    Use a Shelly Dimmer 2 input as a virtual dimmer controller for other lights.
-    Supports single, double, triple, long, single_long, and long_single.
+    Use a Shelly Dimmer 2 input as a virtual dimmer for any light(s).
     Single = toggle, Double = max brightness, Long = continuous dim (alternates up/down).
   domain: automation
   author: HomeAssistant Helper (GPT-5)
@@ -12,22 +11,23 @@ blueprint:
   input:
     shelly_device:
       name: Shelly Dimmer 2 Device
-      description: Select the Shelly device (the input side, not the relay).
+      description: Select the Shelly device.
       selector:
         device:
           integration: shelly
-    input_channel:
-      name: Input Channel
-      description: Input channel to monitor (usually input0 for Dimmer 2)
-      default: input0
+    button_input:
+      name: Button Input
+      description: Usually "button" or "button1" for Shelly Dimmer 2.
+      default: button
       selector:
         select:
           options:
-            - input0
-            - input1
+            - button
+            - button1
+            - button2
     hold_sensor:
       name: (Optional) Hold Sensor
-      description: Binary sensor that is ON while button pressed (optional, used to stop dimming)
+      description: Binary sensor ON while button pressed (used to stop dimming).
       default: []
       selector:
         entity:
@@ -40,7 +40,7 @@ blueprint:
             domain: light
     dim_direction_helper:
       name: Dim Direction Helper
-      description: input_boolean used to store dimming direction (up/down)
+      description: input_boolean used to toggle dim direction.
       selector:
         entity:
           domain: input_boolean
@@ -52,45 +52,45 @@ variables:
   light_target: !input target_light
   dim_toggle: !input dim_direction_helper
   hold_sensor: !input hold_sensor
-  input_channel: !input input_channel
+  button_input: !input button_input
 
 trigger:
-  # All supported Shelly input click types
+  # ✅ This syntax matches the schema from your error messages.
   - platform: device
     device_id: !input shelly_device
     domain: shelly
     type: single
-    subtype: !input input_channel
+    subtype: !input button_input
     id: single
   - platform: device
     device_id: !input shelly_device
     domain: shelly
     type: double
-    subtype: !input input_channel
+    subtype: !input button_input
     id: double
   - platform: device
     device_id: !input shelly_device
     domain: shelly
     type: triple
-    subtype: !input input_channel
+    subtype: !input button_input
     id: triple
   - platform: device
     device_id: !input shelly_device
     domain: shelly
     type: long
-    subtype: !input input_channel
+    subtype: !input button_input
     id: long
   - platform: device
     device_id: !input shelly_device
     domain: shelly
     type: single_long
-    subtype: !input input_channel
+    subtype: !input button_input
     id: single_long
   - platform: device
     device_id: !input shelly_device
     domain: shelly
     type: long_single
-    subtype: !input input_channel
+    subtype: !input button_input
     id: long_single
 
 action:
@@ -121,7 +121,7 @@ action:
           - service: light.turn_off
             target: !input target_light
 
-      # --- Long / Single_Long / Long_Single → Continuous Dim ---
+      # --- Long / Single_Long / Long_Single → Continuous dim ---
       - conditions:
           - condition: template
             value_template: "{{ trigger.id in ['long', 'single_long', 'long_single'] }}"
@@ -146,3 +146,4 @@ action:
                   data:
                     brightness_step_pct: "{{ 5 if dim_up else -5 }}"
                 - delay: "00:00:0.2"
+
