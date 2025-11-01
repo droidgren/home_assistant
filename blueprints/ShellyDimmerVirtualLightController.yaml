@@ -1,139 +1,101 @@
 blueprint:
-  name: Shelly Dimmer 2 Virtual Light ControllerX
+  name: Shelly Virtual Dimmer Controller
   description: >
-    Control another light using a Shelly Dimmer 2.  
-    - Single click → toggle  
-    - Double click → full brightness  
-    - Hold → continuous dim (via script blueprint)  
-    - Release → stop + reverse direction  
+    Use a Shelly Dimmer 2 as a virtual dimmer controller for other lights.
+    Supports single/double/long/single_long/long_single clicks.
   domain: automation
-  author: HomeAssistant Helper GPT-5
+  author: HomeAssistant Helper (GPT-5)
+  homeassistant:
+    min_version: 2025.10.0
 
   input:
-    shelly_device:
-      name: Shelly Device
+    shelly_click:
+      name: Shelly Click Event
+      description: Select the Shelly event entity (e.g., button or binary_sensor)
       selector:
-        device:
-          integration: shelly
-
+        entity:
+          domain: sensor
     target_light:
-      name: Target Light
+      name: Target Light(s)
+      description: Light(s) to control
+      selector:
+        target:
+          entity:
+            domain: light
+    dim_direction_helper:
+      name: Dim Direction Toggle
+      description: An input_boolean helper used to track dim direction (up/down)
       selector:
         entity:
-          domain: light
-
-    dimming_script:
-      name: Continuous Dimming Script
-      description: Select the script created from the "Continuous Dimming Loop" blueprint
-      selector:
-        entity:
-          domain: script
-
-    brightness_step:
-      name: Brightness Step (%)
-      default: 4
-      selector:
-        number:
-          min: 1
-          max: 20
-          unit_of_measurement: "%"
-
-    delay_ms:
-      name: Delay Between Steps (ms)
-      default: 120
-      selector:
-        number:
-          min: 50
-          max: 1000
-          unit_of_measurement: "ms"
+          domain: input_boolean
 
 mode: restart
+max_exceeded: silent
 
 variables:
-  light_entity: !input target_light
-  shelly_device_id: !input shelly_device
-  dim_script: !input dimming_script
-  step: !input brightness_step
-  delay: !input delay_ms
-  direction: "{{ this.attributes.get('direction', 1) | int }}"  # 1 = up, -1 = down
+  light_target: !input target_light
+  dim_toggle: !input dim_direction_helper
 
 trigger:
-  - platform: event
-    event_type: shelly.click
-    id: single
-    event_data:
-      click_type: single
-  - platform: event
-    event_type: shelly.click
-    id: double
-    event_data:
-      click_type: double
-  - platform: event
-    event_type: shelly.click
-    id: long
-    event_data:
-      click_type: long
-  - platform: event
-    event_type: shelly.click
-    id: long_release
-    event_data:
-      click_type: long_release
-
-condition:
-  - condition: template
-    value_template: "{{ trigger.event.data.device_id == shelly_device_id }}"
+  - platform: state
+    entity_id: !input shelly_click
 
 action:
+  - variables:
+      click_type: "{{ trigger.to_state.state }}"
+
   - choose:
-      # ───── SINGLE CLICK ─────
+      # --- Single Click ---
       - conditions:
-          - condition: trigger
-            id: single
+          - condition: template
+            value_template: "{{ click_type == 'single' }}"
         sequence:
           - service: light.toggle
-            target:
-              entity_id: "{{ light_entity }}"
+            target: !input target_light
 
-      # ───── DOUBLE CLICK ─────
+      # --- Double Click ---
       - conditions:
-          - condition: trigger
-            id: double
+          - condition: template
+            value_template: "{{ click_type == 'double' }}"
         sequence:
           - service: light.turn_on
-            target:
-              entity_id: "{{ light_entity }}"
+            target: !input target_light
             data:
               brightness_pct: 100
 
-      # ───── LONG PRESS: start dimming via script ─────
+      # --- Long Press (Continuous Dim) ---
       - conditions:
-          - condition: trigger
-            id: long
+          - condition: template
+            value_template: "{{ click_type in ['long', 'single_long', 'long_single'] }}"
         sequence:
-          - service: script.turn_on
+          - service: input_boolean.toggle
             target:
-              entity_id: "{{ dim_script }}"
-            data:
-              variables:
-                light_entity: "{{ light_entity }}"
-                step: "{{ step }}"
-                delay: "{{ delay }}"
-                direction: "{{ direction }}"
-
-      # ───── RELEASE: stop + flip direction ─────
-      - conditions:
-          - condition: trigger
-            id: long_release
-        sequence:
-          - service: script.turn_off
-            target:
-              entity_id: "{{ dim_script }}"
+              entity_id: "{{ dim_toggle }}"
           - variables:
-              new_direction: "{{ direction * -1 }}"
-          - service: homeassistant.update_entity
-            target:
-              entity_id: "{{ this.entity_id }}"
-          - service: logbook.log
-            data:
-              name: "Shelly Dimmer"
-              message: "Next dim direction: {{ 'up' if new_direction == 1 else 'down' }}"
+              dim_up: "{{ is_state(dim_toggle, 'on') }}"
+          - repeat:
+              while:
+                - condition: template
+                  value_template: "{{ is_state(trigger.entity_id, 'long') }}"
+              sequence:
+                - service: light.turn_on
+                  target: !input target_light
+                  data:
+                    brightness_step_pct: "{{ 5 if dim_up else -5 }}"
+                - delay: "00:00:0.2"
+
+      # --- Triple Click (Optional Action Example) ---
+      - conditions:
+          - condition: template
+            value_template: "{{ click_type == 'triple' }}"
+        sequence:
+          - service: light.turn_off
+            target: !input target_light
+
+  # Stop dimming when button released
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ click_type not in ['long', 'single_long', 'long_single'] }}"
+        sequence:
+          - stop: "Stop continuous dimming"
