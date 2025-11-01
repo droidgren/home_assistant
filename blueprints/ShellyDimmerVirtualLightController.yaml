@@ -1,30 +1,40 @@
 blueprint:
-  name: Shelly Virtual Dimmer Controller
+  name: Shelly Virtual Dimmer Controller (Device-based)
   description: >
-    Use a Shelly Dimmer 2 as a virtual dimmer controller for other lights.
-    Supports single/double/long/single_long/long_single clicks.
+    Use a Shelly Dimmer 2 input as a virtual controller for any light(s).
+    Supports single, double, triple, long, single_long, and long_single press types.
+    Single = toggle light, Double = max brightness, Long = continuous dim (direction toggles each time).
   domain: automation
   author: HomeAssistant Helper (GPT-5)
   homeassistant:
     min_version: 2025.10.0
 
   input:
-    shelly_click:
-      name: Shelly Click Event
-      description: Select the Shelly event entity (e.g., button or binary_sensor)
+    shelly_device:
+      name: Shelly Dimmer 2 Device
+      description: >
+        Select your Shelly Dimmer 2 device input (the one with supported click events).
+      selector:
+        device:
+          integration: shelly
+    shelly_hold_sensor:
+      name: (Optional) Button Hold Binary Sensor
+      description: >
+        Optional: The binary sensor that is ON while button is physically pressed (used for continuous dimming).
+      default: []
       selector:
         entity:
-          domain: sensor
+          domain: binary_sensor
     target_light:
       name: Target Light(s)
-      description: Light(s) to control
+      description: The light(s) this controller will manage
       selector:
         target:
           entity:
             domain: light
     dim_direction_helper:
-      name: Dim Direction Toggle
-      description: An input_boolean helper used to track dim direction (up/down)
+      name: Dim Direction Helper
+      description: An input_boolean used to store current dim direction (up/down)
       selector:
         entity:
           domain: input_boolean
@@ -35,38 +45,79 @@ max_exceeded: silent
 variables:
   light_target: !input target_light
   dim_toggle: !input dim_direction_helper
+  hold_sensor: !input shelly_hold_sensor
 
 trigger:
-  - platform: state
-    entity_id: !input shelly_click
+  # Device triggers for supported Shelly click types
+  - platform: device
+    device_id: !input shelly_device
+    domain: shelly
+    type: single
+    subtype: button
+    id: single
+  - platform: device
+    device_id: !input shelly_device
+    domain: shelly
+    type: double
+    subtype: button
+    id: double
+  - platform: device
+    device_id: !input shelly_device
+    domain: shelly
+    type: triple
+    subtype: button
+    id: triple
+  - platform: device
+    device_id: !input shelly_device
+    domain: shelly
+    type: long
+    subtype: button
+    id: long
+  - platform: device
+    device_id: !input shelly_device
+    domain: shelly
+    type: single_long
+    subtype: button
+    id: single_long
+  - platform: device
+    device_id: !input shelly_device
+    domain: shelly
+    type: long_single
+    subtype: button
+    id: long_single
 
 action:
-  - variables:
-      click_type: "{{ trigger.to_state.state }}"
-
   - choose:
       # --- Single Click ---
       - conditions:
-          - condition: template
-            value_template: "{{ click_type == 'single' }}"
+          - condition: trigger
+            id: single
         sequence:
           - service: light.toggle
             target: !input target_light
 
       # --- Double Click ---
       - conditions:
-          - condition: template
-            value_template: "{{ click_type == 'double' }}"
+          - condition: trigger
+            id: double
         sequence:
           - service: light.turn_on
             target: !input target_light
             data:
               brightness_pct: 100
 
-      # --- Long Press (Continuous Dim) ---
+      # --- Triple Click (optional: turn off) ---
+      - conditions:
+          - condition: trigger
+            id: triple
+        sequence:
+          - service: light.turn_off
+            target: !input target_light
+
+      # --- Long Hold or Long Combo: continuous dim ---
       - conditions:
           - condition: template
-            value_template: "{{ click_type in ['long', 'single_long', 'long_single'] }}"
+            value_template: "{{ trigger.id in ['long', 'single_long', 'long_single'] }}"
         sequence:
           - service: input_boolean.toggle
             target:
@@ -76,26 +127,15 @@ action:
           - repeat:
               while:
                 - condition: template
-                  value_template: "{{ is_state(trigger.entity_id, 'long') }}"
+                  value_template: >
+                    {% if hold_sensor != [] %}
+                      {{ is_state(hold_sensor, 'on') }}
+                    {% else %}
+                      true
+                    {% endif %}
               sequence:
                 - service: light.turn_on
                   target: !input target_light
                   data:
                     brightness_step_pct: "{{ 5 if dim_up else -5 }}"
                 - delay: "00:00:0.2"
-
-      # --- Triple Click (Optional Action Example) ---
-      - conditions:
-          - condition: template
-            value_template: "{{ click_type == 'triple' }}"
-        sequence:
-          - service: light.turn_off
-            target: !input target_light
-
-  # Stop dimming when button released
-  - choose:
-      - conditions:
-          - condition: template
-            value_template: "{{ click_type not in ['long', 'single_long', 'long_single'] }}"
-        sequence:
-          - stop: "Stop continuous dimming"
