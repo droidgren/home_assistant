@@ -1,8 +1,9 @@
 blueprint:
-  name: Shelly Virtual Dimmer Controller (Fixed)
+  name: Shelly Virtual Dimmer Controller (2025.10)
   description: >
-    Use a Shelly Dimmer 2 input as a virtual dimmer for other lights.
-    Supports single, double, triple, long, single_long, long_single presses.
+    Use a Shelly Dimmer 2 input as a virtual dimmer for any light(s).
+    Single = toggle, Double = full brightness, Hold = continuous dim (alternates direction).
+    Supports Shelly device events: single, double, triple, long, single_long, long_single.
   domain: automation
   author: HomeAssistant Helper (GPT-5)
   homeassistant:
@@ -11,15 +12,13 @@ blueprint:
   input:
     shelly_device:
       name: Shelly Dimmer 2 Device
-      description: >
-        Select your Shelly Dimmer 2 device input (supports button events).
+      description: Select the Shelly device for input control.
       selector:
         device:
           integration: shelly
     button_input:
       name: Button Input
-      description: >
-        Select which Shelly input to use (usually 'button1' or 'input0').
+      description: Usually "button1" for input 1.
       default: button1
       selector:
         select:
@@ -28,8 +27,7 @@ blueprint:
             - button2
     hold_sensor:
       name: (Optional) Hold Sensor
-      description: >
-        Optional: Binary sensor that is ON while the button is physically pressed.
+      description: Binary sensor that is ON while button pressed (optional for continuous dimming stop).
       default: []
       selector:
         entity:
@@ -42,7 +40,7 @@ blueprint:
             domain: light
     dim_direction_helper:
       name: Dim Direction Helper
-      description: input_boolean used to toggle dimming direction.
+      description: input_boolean used to track dimming direction.
       selector:
         entity:
           domain: input_boolean
@@ -57,53 +55,46 @@ variables:
   button_input: !input button_input
 
 trigger:
-  # Valid Shelly device trigger schema
   - platform: device
     device_id: !input shelly_device
     domain: shelly
-    type: button
+    type: single
     subtype: !input button_input
-    event: single
     id: single
   - platform: device
     device_id: !input shelly_device
     domain: shelly
-    type: button
+    type: double
     subtype: !input button_input
-    event: double
     id: double
   - platform: device
     device_id: !input shelly_device
     domain: shelly
-    type: button
+    type: triple
     subtype: !input button_input
-    event: triple
     id: triple
   - platform: device
     device_id: !input shelly_device
     domain: shelly
-    type: button
+    type: long
     subtype: !input button_input
-    event: long
     id: long
   - platform: device
     device_id: !input shelly_device
     domain: shelly
-    type: button
+    type: single_long
     subtype: !input button_input
-    event: single_long
     id: single_long
   - platform: device
     device_id: !input shelly_device
     domain: shelly
-    type: button
+    type: long_single
     subtype: !input button_input
-    event: long_single
     id: long_single
 
 action:
   - choose:
-      # Single Click → Toggle
+      # --- Single Click → Toggle ---
       - conditions:
           - condition: trigger
             id: single
@@ -111,7 +102,7 @@ action:
           - service: light.toggle
             target: !input target_light
 
-      # Double Click → 100% brightness
+      # --- Double Click → 100% Brightness ---
       - conditions:
           - condition: trigger
             id: double
@@ -121,7 +112,7 @@ action:
             data:
               brightness_pct: 100
 
-      # Triple Click → Turn off
+      # --- Triple Click → Turn Off ---
       - conditions:
           - condition: trigger
             id: triple
@@ -129,7 +120,7 @@ action:
           - service: light.turn_off
             target: !input target_light
 
-      # Long (and combos) → Continuous dim
+      # --- Long, Single_Long, Long_Single → Continuous Dim ---
       - conditions:
           - condition: template
             value_template: "{{ trigger.id in ['long', 'single_long', 'long_single'] }}"
