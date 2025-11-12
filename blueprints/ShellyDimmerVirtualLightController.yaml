@@ -1,30 +1,20 @@
 blueprint:
-  name: Shelly Dimmer 2 Virtual Controller (Gen1 - reliable double click)
+  name: Shelly Dimmer 2 Virtual Controller (Gen1 – Binary Sensor Timing)
   description: >
-    Virtual controller for controlling other lights via Shelly Dimmer 2.
-    - Single click: Toggle lights
-    - Double click: Max brightness (two single clicks within window)
-    - Hold (long): Continuous dimming (direction toggles each hold)
+    Control other lights with a Shelly Dimmer 2 button.
+    - Single click → toggle
+    - Double click → max brightness
+    - Hold → continuous dimming (direction toggles each time)
   domain: automation
   author: HomeAssistant Helper (GPT-5)
-  homeassistant:
-    min_version: 2025.10.0
 
   input:
-    shelly_device:
-      name: Shelly Device
+    button_sensor:
+      name: Button Binary Sensor
+      description: Binary sensor that is ON while the button is pressed.
       selector:
-        device:
-          integration: shelly
-
-    channel:
-      name: Channel
-      default: 1
-      selector:
-        number:
-          min: 1
-          max: 2
-          mode: box
+        entity:
+          domain: binary_sensor
 
     target_light:
       name: Target Light(s)
@@ -33,17 +23,9 @@ blueprint:
           entity:
             domain: light
 
-    hold_sensor:
-      name: (Optional) Hold Sensor
-      description: Binary sensor that is ON while button is pressed.
-      default: []
-      selector:
-        entity:
-          domain: binary_sensor
-
     dim_direction_helper:
       name: Dim Direction Helper
-      description: input_boolean helper toggling dim direction up/down
+      description: input_boolean helper toggled each hold (up/down)
       selector:
         entity:
           domain: input_boolean
@@ -56,67 +38,60 @@ blueprint:
           min: 1
           max: 20
           step: 1
-          mode: slider
           unit_of_measurement: "%"
 
     dim_delay:
-      name: Dimming Delay (seconds)
+      name: Dimming Delay (s)
       default: 0.2
       selector:
         number:
           min: 0.05
           max: 1.0
           step: 0.05
-          mode: slider
           unit_of_measurement: "s"
 
     double_click_window:
-      name: Double Click Window (seconds)
+      name: Double Click Window (s)
       default: 0.8
       selector:
         number:
           min: 0.2
           max: 1.5
           step: 0.1
-          mode: slider
           unit_of_measurement: "s"
 
 mode: restart
 max_exceeded: silent
 
 variables:
-  device_id: !input shelly_device
-  channel: !input channel
   light_target: !input target_light
   dim_toggle: !input dim_direction_helper
-  hold_sensor: !input hold_sensor
   dim_step: !input dim_step
   dim_delay: !input dim_delay
   double_click_window: !input double_click_window
 
 trigger:
-  - platform: event
-    event_type: shelly.click
-    id: single
-    event_data:
-      device_id: !input shelly_device
-      click_type: single
-      channel: !input channel
+  # Fires when the button is pressed (binary_sensor goes ON)
+  - platform: state
+    entity_id: !input button_sensor
+    from: "off"
+    to: "on"
+    id: press
 
-  - platform: event
-    event_type: shelly.click
-    id: long
-    event_data:
-      device_id: !input shelly_device
-      click_type: long
-      channel: !input channel
+  # Fires when held (stays ON for > 0.5 s)
+  - platform: state
+    entity_id: !input button_sensor
+    to: "on"
+    for:
+      seconds: 0.5
+    id: hold
 
 action:
   - choose:
-      # --- HOLD (long) triggers dimming loop ---
+      # --- HOLD (continuous dim) ---
       - conditions:
           - condition: trigger
-            id: long
+            id: hold
         sequence:
           - service: input_boolean.toggle
             target:
@@ -125,13 +100,9 @@ action:
               dim_up: "{{ is_state(dim_toggle, 'on') }}"
           - repeat:
               while:
-                - condition: template
-                  value_template: >
-                    {% if hold_sensor != [] %}
-                      {{ is_state(hold_sensor, 'on') }}
-                    {% else %}
-                      true
-                    {% endif %}
+                - condition: state
+                  entity_id: !input button_sensor
+                  state: "on"
               sequence:
                 - service: light.turn_on
                   target: !input target_light
@@ -140,32 +111,31 @@ action:
                 - delay:
                     seconds: "{{ dim_delay }}"
 
-      # --- SINGLE click with double-click detection (timeout method) ---
+      # --- CLICK / DOUBLE-CLICK detection ---
       - conditions:
           - condition: trigger
-            id: single
+            id: press
         sequence:
-          # Wait for second click (single) within timeout
-          - wait_for_trigger:
-              - platform: event
-                event_type: shelly.click
-                event_data:
-                  device_id: !input shelly_device
-                  click_type: single
-                  channel: !input channel
-            timeout:
-              seconds: "{{ double_click_window }}"
-            continue_on_timeout: true
-
+          - variables:
+              last_press: "{{ this.attributes.last_press | default(0) }}"
+              now_ts: "{{ as_timestamp(now()) }}"
+              delta: "{{ now_ts - last_press }}"
           - if:
-              # Single click = no second click detected
+              # Double-click = pressed again quickly
               - condition: template
-                value_template: "{{ wait.trigger == none }}"
+                value_template: "{{ delta < double_click_window }}"
             then:
-              - service: light.toggle
-                target: !input target_light
-            else:
               - service: light.turn_on
                 target: !input target_light
                 data:
                   brightness_pct: 100
+            else:
+              - service: light.toggle
+                target: !input target_light
+          # Remember this press time
+          - service: automation.trigger
+            target:
+              entity_id: "{{ this.entity_id }}"
+            data:
+              variables:
+                last_press: "{{ now_ts }}"
