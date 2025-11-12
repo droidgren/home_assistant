@@ -1,17 +1,35 @@
 blueprint:
-  name: Shelly Dimmer 2 Virtual Controller (Gen1 – Binary Sensor Timing)
+  name: Shelly Dimmer 2 — On/Off + Continuous Dim (no double-click)
   description: >
-    Control other lights with a Shelly Dimmer 2 button.
-    - Single click → toggle
-    - Double click → max brightness
-    - Hold → continuous dimming (direction toggles each time)
+    Use a Shelly Dimmer 2 button to toggle lights (single click) and
+    to continuously dim while holding (long). Double-click logic removed.
   domain: automation
   author: HomeAssistant Helper (GPT-5)
+  homeassistant:
+    min_version: 2025.10.0
 
   input:
-    button_sensor:
-      name: Button Binary Sensor
-      description: Binary sensor that is ON while the button is pressed.
+    shelly_device:
+      name: Shelly Device (for event filtering)
+      description: Shelly device used to ensure we only react to your device's clicks.
+      selector:
+        device:
+          integration: shelly
+
+    channel:
+      name: Channel
+      description: Shelly channel (usually 1)
+      default: 1
+      selector:
+        number:
+          min: 1
+          max: 2
+          mode: box
+
+    button_hold_sensor:
+      name: (Optional) Hold Binary Sensor
+      description: Binary sensor that is ON while the button is physically pressed (recommended).
+      default: []
       selector:
         entity:
           domain: binary_sensor
@@ -25,84 +43,102 @@ blueprint:
 
     dim_direction_helper:
       name: Dim Direction Helper
-      description: input_boolean helper toggled each hold (up/down)
+      description: input_boolean used to toggle dim direction each hold
       selector:
         entity:
           domain: input_boolean
 
     dim_step:
       name: Dimming Step (%)
+      description: Percent change per loop iteration
       default: 5
       selector:
         number:
           min: 1
           max: 20
           step: 1
+          mode: slider
           unit_of_measurement: "%"
 
     dim_delay:
       name: Dimming Delay (s)
+      description: Delay between each dim step
       default: 0.2
       selector:
         number:
           min: 0.05
           max: 1.0
           step: 0.05
+          mode: slider
           unit_of_measurement: "s"
 
-    double_click_window:
-      name: Double Click Window (s)
-      default: 0.8
+    max_hold:
+      name: Max hold duration (s) when no hold sensor
+      description: Safety timeout to stop dim loop if no hold sensor is provided
+      default: 30
       selector:
         number:
-          min: 0.2
-          max: 1.5
-          step: 0.1
+          min: 1
+          max: 600
+          step: 1
           unit_of_measurement: "s"
 
 mode: restart
 max_exceeded: silent
 
 variables:
+  device_id: !input shelly_device
+  channel: !input channel
   light_target: !input target_light
   dim_toggle: !input dim_direction_helper
+  hold_sensor: !input button_hold_sensor
   dim_step: !input dim_step
   dim_delay: !input dim_delay
-  double_click_window: !input double_click_window
+  max_hold: !input max_hold
 
 trigger:
-  # Fires when the button is pressed (binary_sensor goes ON)
-  - platform: state
-    entity_id: !input button_sensor
-    from: "off"
-    to: "on"
-    id: press
+  # Single click (toggle)
+  - platform: event
+    event_type: shelly.click
+    id: single
+    event_data:
+      device_id: !input shelly_device
+      click_type: single
+      channel: !input channel
 
-  # Fires when held (stays ON for > 0.5 s)
-  - platform: state
-    entity_id: !input button_sensor
-    to: "on"
-    for:
-      seconds: 0.5
-    id: hold
+  # Long press (start continuous dim)
+  - platform: event
+    event_type: shelly.click
+    id: long
+    event_data:
+      device_id: !input shelly_device
+      click_type: long
+      channel: !input channel
 
 action:
   - choose:
-      # --- HOLD (continuous dim) ---
+      # LONG press -> continuous dim loop
       - conditions:
           - condition: trigger
-            id: hold
+            id: long
         sequence:
+          # Toggle stored dim direction each time a long press begins
           - service: input_boolean.toggle
             target:
               entity_id: "{{ dim_toggle }}"
           - variables:
               dim_up: "{{ is_state(dim_toggle, 'on') }}"
+              start_ts: "{{ as_timestamp(now()) }}"
           - repeat:
               while:
-                - condition: state
-                  entity_id: !input button_sensor
-                  state: "on"
+                - condition: template
+                  value_template: >
+                    {# If a hold sensor is provided, loop while it's 'on'. Otherwise loop while elapsed < max_hold #}
+                    {% if hold_sensor != [] %}
+                      {{ is_state(hold_sensor, 'on') }}
+                    {% else %}
+                      {{ (as_timestamp(now()) - start_ts) < max_hold }}
+                    {% endif %}
               sequence:
                 - service: light.turn_on
                   target: !input target_light
@@ -111,31 +147,10 @@ action:
                 - delay:
                     seconds: "{{ dim_delay }}"
 
-      # --- CLICK / DOUBLE-CLICK detection ---
+      # SINGLE click -> Toggle light
       - conditions:
           - condition: trigger
-            id: press
+            id: single
         sequence:
-          - variables:
-              last_press: "{{ this.attributes.last_press | default(0) }}"
-              now_ts: "{{ as_timestamp(now()) }}"
-              delta: "{{ now_ts - last_press }}"
-          - if:
-              # Double-click = pressed again quickly
-              - condition: template
-                value_template: "{{ delta < double_click_window }}"
-            then:
-              - service: light.turn_on
-                target: !input target_light
-                data:
-                  brightness_pct: 100
-            else:
-              - service: light.toggle
-                target: !input target_light
-          # Remember this press time
-          - service: automation.trigger
-            target:
-              entity_id: "{{ this.entity_id }}"
-            data:
-              variables:
-                last_press: "{{ now_ts }}"
+          - service: light.toggle
+            target: !input target_light
