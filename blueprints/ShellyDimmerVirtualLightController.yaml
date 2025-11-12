@@ -1,10 +1,10 @@
 blueprint:
-  name: Shelly Dimmer 2 — On/Off + Continuous Dim (no double-click)
+  name: Shelly Dimmer 2 gen 1 — On/Off + Continuous Dim
   description: >
     Use a Shelly Dimmer 2 button to toggle lights (single click) and
-    to continuously dim while holding (long). Double-click logic removed.
+    to continuously dim while holding (long). 
   domain: automation
-  author: HomeAssistant Helper (GPT-5)
+  author: droidgren
   homeassistant:
     min_version: 2025.10.0
 
