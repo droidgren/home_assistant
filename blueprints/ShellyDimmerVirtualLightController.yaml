@@ -1,10 +1,10 @@
 blueprint:
-  name: Shelly Dimmer 2 Virtual Controller (Gen1 - wait_for_trigger fixed)
+  name: Shelly Dimmer 2 Virtual Controller (Gen1 - reliable double click)
   description: >
-    Shelly Dimmer 2 (Gen1) virtual controller for lights.
-    - Single click → Toggle (unless a second single occurs within window)
-    - Double click (two singles within window) → Max brightness
-    - Hold → Continuous dim (direction alternates)
+    Virtual controller for controlling other lights via Shelly Dimmer 2.
+    - Single click: Toggle lights
+    - Double click: Max brightness (two single clicks within window)
+    - Hold (long): Continuous dimming (direction toggles each hold)
   domain: automation
   author: HomeAssistant Helper (GPT-5)
   homeassistant:
@@ -26,14 +26,6 @@ blueprint:
           max: 2
           mode: box
 
-    hold_sensor:
-      name: (Optional) Hold Sensor
-      description: Binary sensor ON while button pressed (optional stop condition)
-      default: []
-      selector:
-        entity:
-          domain: binary_sensor
-
     target_light:
       name: Target Light(s)
       selector:
@@ -41,9 +33,17 @@ blueprint:
           entity:
             domain: light
 
+    hold_sensor:
+      name: (Optional) Hold Sensor
+      description: Binary sensor that is ON while button is pressed.
+      default: []
+      selector:
+        entity:
+          domain: binary_sensor
+
     dim_direction_helper:
       name: Dim Direction Helper
-      description: input_boolean helper to toggle dim direction up/down
+      description: input_boolean helper toggling dim direction up/down
       selector:
         entity:
           domain: input_boolean
@@ -111,25 +111,9 @@ trigger:
       click_type: long
       channel: !input channel
 
-  - platform: event
-    event_type: shelly.click
-    id: single_long
-    event_data:
-      device_id: !input shelly_device
-      click_type: single_long
-      channel: !input channel
-
-  - platform: event
-    event_type: shelly.click
-    id: long_single
-    event_data:
-      device_id: !input shelly_device
-      click_type: long_single
-      channel: !input channel
-
 action:
   - choose:
-      # --- Hold (long variants) → Continuous dimming loop ---
+      # --- HOLD (long) triggers dimming loop ---
       - conditions:
           - condition: trigger
             id: long
@@ -156,12 +140,12 @@ action:
                 - delay:
                     seconds: "{{ dim_delay }}"
 
-      # --- Single click: wait for potential double click (with validation) ---
+      # --- SINGLE click with double-click detection (timeout method) ---
       - conditions:
           - condition: trigger
             id: single
         sequence:
-          # Wait for a second single click within window
+          # Wait for second click (single) within timeout
           - wait_for_trigger:
               - platform: event
                 event_type: shelly.click
@@ -173,31 +157,15 @@ action:
               seconds: "{{ double_click_window }}"
             continue_on_timeout: true
 
-          # Decide: is it a valid double click?
-          - choose:
-              - conditions:
-                  # wait.trigger did not timeout AND waited event is a different event instance
-                  - condition: template
-                    value_template: >
-                      {{ (not wait.trigger.timeout)
-                         and (wait.trigger.event is defined)
-                         and (trigger.event.context is defined)
-                         and (wait.trigger.event.context.id != trigger.event.context.id)
-                         and (as_timestamp(wait.trigger.event.time_fired) > as_timestamp(trigger.event.time_fired)) }}
-                sequence:
-                  # Valid double click: go to full brightness
-                  - service: light.turn_on
-                    target: !input target_light
-                    data:
-                      brightness_pct: 100
-
-              - conditions:
-                  # Otherwise: treat as single click
-                  - condition: template
-                    value_template: >
-                      {{ wait.trigger.timeout or wait.trigger.event is not defined
-                         or (wait.trigger.event.context.id == trigger.event.context.id)
-                         or (as_timestamp(wait.trigger.event.time_fired) <= as_timestamp(trigger.event.time_fired)) }}
-                sequence:
-                  - service: light.toggle
-                    target: !input target_light
+          - if:
+              # Single click = no second click detected
+              - condition: template
+                value_template: "{{ wait.trigger == none }}"
+            then:
+              - service: light.toggle
+                target: !input target_light
+            else:
+              - service: light.turn_on
+                target: !input target_light
+                data:
+                  brightness_pct: 100
