@@ -1,10 +1,10 @@
 blueprint:
-  name: Shelly Dimmer 2 Virtual Controller (Gen1 - Event Based)
+  name: Shelly Dimmer 2 Virtual Controller (Gen1 - Wait-for-trigger Double Click)
   description: >
-    Use a Shelly Dimmer 2 (Gen1) button to control other lights.
-    - Single click → Toggle
-    - Double click → Max brightness
-    - Hold (long) → Continuous dim (direction alternates)
+    Use a Shelly Dimmer 2 (Gen1) as a virtual controller for other lights.
+    - Single click → Toggle light(s)
+    - Double click (two singles within window) → Max brightness
+    - Hold → Continuous dim (direction alternates)
   domain: automation
   author: HomeAssistant Helper (GPT-5)
   homeassistant:
@@ -19,7 +19,6 @@ blueprint:
 
     channel:
       name: Channel
-      description: Input channel (usually 1)
       default: 1
       selector:
         number:
@@ -29,14 +28,14 @@ blueprint:
 
     hold_sensor:
       name: (Optional) Hold Sensor
-      description: Binary sensor ON while button pressed (to stop dim loop)
+      description: Binary sensor ON while button pressed (optional stop condition)
       default: []
       selector:
         entity:
           domain: binary_sensor
 
     target_light:
-      name: Target light(s)
+      name: Target Light(s)
       selector:
         target:
           entity:
@@ -44,10 +43,43 @@ blueprint:
 
     dim_direction_helper:
       name: Dim Direction Helper
-      description: input_boolean to toggle dim direction
+      description: input_boolean helper to toggle dim direction up/down
       selector:
         entity:
           domain: input_boolean
+
+    dim_step:
+      name: Dimming Step (%)
+      default: 5
+      selector:
+        number:
+          min: 1
+          max: 20
+          step: 1
+          mode: slider
+          unit_of_measurement: "%"
+
+    dim_delay:
+      name: Dimming Delay (seconds)
+      default: 0.2
+      selector:
+        number:
+          min: 0.05
+          max: 1.0
+          step: 0.05
+          mode: slider
+          unit_of_measurement: "s"
+
+    double_click_window:
+      name: Double Click Window (seconds)
+      default: 0.8
+      selector:
+        number:
+          min: 0.2
+          max: 1.5
+          step: 0.1
+          mode: slider
+          unit_of_measurement: "s"
 
 mode: restart
 max_exceeded: silent
@@ -58,6 +90,9 @@ variables:
   light_target: !input target_light
   dim_toggle: !input dim_direction_helper
   hold_sensor: !input hold_sensor
+  dim_step: !input dim_step
+  dim_delay: !input dim_delay
+  double_click_window: !input double_click_window
 
 trigger:
   - platform: event
@@ -66,22 +101,6 @@ trigger:
     event_data:
       device_id: !input shelly_device
       click_type: single
-      channel: !input channel
-
-  - platform: event
-    event_type: shelly.click
-    id: double
-    event_data:
-      device_id: !input shelly_device
-      click_type: double
-      channel: !input channel
-
-  - platform: event
-    event_type: shelly.click
-    id: triple
-    event_data:
-      device_id: !input shelly_device
-      click_type: triple
       channel: !input channel
 
   - platform: event
@@ -110,29 +129,7 @@ trigger:
 
 action:
   - choose:
-      - conditions:
-          - condition: trigger
-            id: single
-        sequence:
-          - service: light.toggle
-            target: !input target_light
-
-      - conditions:
-          - condition: trigger
-            id: double
-        sequence:
-          - service: light.turn_on
-            target: !input target_light
-            data:
-              brightness_pct: 100
-
-      - conditions:
-          - condition: trigger
-            id: triple
-        sequence:
-          - service: light.turn_off
-            target: !input target_light
-
+      # --- Hold (long variants) → Continuous dimming loop ---
       - conditions:
           - condition: template
             value_template: "{{ trigger.id in ['long', 'single_long', 'long_single'] }}"
@@ -155,5 +152,39 @@ action:
                 - service: light.turn_on
                   target: !input target_light
                   data:
-                    brightness_step_pct: "{{ 5 if dim_up else -5 }}"
-                - delay: "00:00:0.2"
+                    brightness_step_pct: "{{ dim_step if dim_up else -dim_step }}"
+                - delay:
+                    seconds: "{{ dim_delay }}"
+
+      # --- Single click: wait for potential double click ---
+      - conditions:
+          - condition: trigger
+            id: single
+        sequence:
+          - wait_for_trigger:
+              - platform: event
+                event_type: shelly.click
+                event_data:
+                  device_id: !input shelly_device
+                  click_type: single
+                  channel: !input channel
+            timeout:
+              seconds: "{{ double_click_window }}"
+            continue_on_timeout: true
+          - choose:
+              # If second click occurred (double click)
+              - conditions:
+                  - condition: template
+                    value_template: "{{ not wait.trigger.timeout }}"
+                sequence:
+                  - service: light.turn_on
+                    target: !input target_light
+                    data:
+                      brightness_pct: 100
+              # If timeout (no second click → single)
+              - conditions:
+                  - condition: template
+                    value_template: "{{ wait.trigger.timeout }}"
+                sequence:
+                  - service: light.toggle
+                    target: !input target_light
