@@ -1,6 +1,6 @@
-# Meterologisk årstid v 1.1
+# Meterologisk årstid v 1.1.1
  
-### OBS. Denna kod fungerar inte 100% korrekt ( Jobbar på det ) 
+
 Denna yaml-fil beräknar den Meterologiska årstiden enligt SMHIs defintion (nedan) baserat på temperaturen där du bor.
 
 <img src="https://github.com/droidgren/home_assistant/blob/main/meteorological_season/brick-card.png">
