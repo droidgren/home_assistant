@@ -298,8 +298,8 @@ automation:
                     - input_boolean.mst_autumn_date_set
                         
           # --- Vår anländer? Kan bara ske från Vinter och Höst ---
-          - conditions: "{{ spring_c >= 7 and (current_season_is_winter or current_season_is_spring or no_season_is_set or ) }}"
-            sequence:
+          - conditions: "{{ spring_c >= 7 and (current_season_is_winter or current_season_is_spring or no_season_is_set) }}"
+            sequence
               - variables:
                   spring_arrival_dt_obj: "{{ (now() - timedelta(days=7)) }}"
                   latest_spring_ok: "{{ ((spring_arrival_dt_obj | as_datetime).month * 100 + (spring_arrival_dt_obj | as_datetime).day) <= 731 }}"
@@ -317,3 +317,4 @@ automation:
                         - input_boolean.mst_summer_date_set
                         - input_boolean.mst_autumn_date_set
     mode: single
+
