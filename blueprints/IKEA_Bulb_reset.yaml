@@ -1,0 +1,41 @@
+blueprint:
+  name: IKEA Bulb Reset Sequence
+  description: >
+    Run the specific On/Off sequence to reset IKEA Tradfri bulbs to pairing mode.
+    Note: The target must be the Smart Plug or Switch that physically controls the power to the bulb.
+  domain: script
+  input:
+    target_power_entity:
+      name: Power Control Entity
+      description: Select the Smart Plug, Switch, or Relay that the IKEA bulb is plugged into.
+      selector:
+        entity:
+          domain: 
+            - switch
+
+
+sequence:
+  - alias: "Ikea Reset Loop"
+    repeat:
+      count: 5
+      sequence:
+        - alias: "Cut Power"
+          service: homeassistant.turn_off
+          target:
+            entity_id: !input target_power_entity
+        
+        - alias: "Wait 900ms"
+          delay:
+            milliseconds: 900
+            
+        - alias: "Restore Power"
+          service: homeassistant.turn_on
+          target:
+            entity_id: !input target_power_entity
+            
+        - alias: "Wait 500ms"
+          delay:
+            milliseconds: 500
+
+mode: single
+icon: mdi:lightbulb-refresh
