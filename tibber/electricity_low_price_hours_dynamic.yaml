@@ -6,7 +6,7 @@
 #   that are cheaper than the daily average by a specific user-defined percentage.
 #
 # DEPENDENCIES:
-#   1. sensor.electricity_price (Requires 'all_prices' and 'avg_price' attributes).
+#   1. sensor.electricity_price (Requires 'all_prices' and 'avg_price' attributes).  (For example https://github.com/droidgren/home_assistant/blob/main/tibber/tibber_future.yaml )
 #   2. input_number.electricity_threshold (A multiplier, e.g., 0.8 for 80% of average).
 #
 # OUTPUTS:
