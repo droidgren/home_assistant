@@ -15,7 +15,7 @@
 #   consecutive cheap hours (useful for automations).
 # ----------------------------------------------------------------------
 
-sensor:
+template:
   - sensor:
         - name: "Electricity Low Price Hours Dynamic"
           unique_id: "electricity_low_price_hours_dynamic"
