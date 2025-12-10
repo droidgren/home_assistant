@@ -1,3 +1,20 @@
+# ----------------------------------------------------------------------
+# SENSOR: Dynamic Low Price Hours Monitor
+# ----------------------------------------------------------------------
+# DESCRIPTION:
+#   This template sensor analyzes the daily electricity prices to find hours
+#   that are cheaper than the daily average by a specific user-defined percentage.
+#
+# DEPENDENCIES:
+#   1. sensor.electricity_price (Requires 'all_prices' and 'avg_price' attributes).
+#   2. input_number.electricity_threshold (A multiplier, e.g., 0.8 for 80% of average).
+#
+# OUTPUTS:
+#   State: The total count (integer) of hours below the calculated threshold.
+#   Attribute 'low_price_periods': A JSON list of start/end times grouping 
+#   consecutive cheap hours (useful for automations).
+# ----------------------------------------------------------------------
+
 sensor:
   - sensor:
         - name: "Electricity Low Price Hours Dynamic"
