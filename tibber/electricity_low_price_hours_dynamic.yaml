@@ -1,0 +1,55 @@
+sensor:
+  - sensor:
+        - name: "Electricity Low Price Hours Dynamic"
+          unique_id: "electricity_low_price_hours_dynamic"
+          availability: >
+            {{ state_attr('sensor.electricity_price', 'all_prices') is not none 
+               and state_attr('sensor.electricity_price', 'avg_price') is not none }}
+          state: >
+              {% set avg_price = state_attr('sensor.electricity_price', 'avg_price') | float(0) %}
+              {% set all_prices = state_attr('sensor.electricity_price', 'all_prices') %}
+              {% set threshold = avg_price * states('input_number.electricity_threshold') | float %}
+              {% set low_hours = all_prices | selectattr('totalHour', 'lt', threshold) | map(attribute='startsAt') | list %}
+              {{ low_hours | length }}
+          attributes:
+              avg_price: "{{ state_attr('sensor.electricity_price', 'avg_price') | round(2) }} SEK/kWh"
+              threshold: "{{ (state_attr('sensor.electricity_price', 'avg_price') * states('input_number.electricity_threshold') | float(0)) | round(2) }}  SEK/kWh"
+              percentage_of_average: "{{ (states('input_number.electricity_threshold') | float  * 100) | round(0)}}%"
+              percentage_under_average: "{{ 100-(states('input_number.electricity_threshold') | float  * 100) | round(0)}}%"
+              low_price_periods: >-
+                {% set avg_price = state_attr('sensor.electricity_price', 'avg_price') | float(0) %}
+                {% set all_prices = state_attr('sensor.electricity_price', 'all_prices') %}
+                {% set threshold = avg_price * states('input_number.electricity_threshold') | float %}
+                {% set low_hours = all_prices | selectattr('totalHour', 'lt', threshold) | list %}
+                {% set ns = namespace(periods=[], prev_time=None, current_time=None, current_period=[]) %}
+                {% for hour in low_hours %}
+                  {% set utc_time = hour.startsAt %}
+                  {% set ns.current_time = as_datetime(utc_time) %}
+                  {% if ns.prev_time is not none %}
+                    {% set time_diff = (ns.current_time - ns.prev_time).total_seconds() %}
+                    {% if time_diff > 3600 %}
+                      {# Close the previous period and start a new one #}
+                      {% if ns.current_period %}
+                        {% set ns.periods = ns.periods + [ns.current_period] %}
+                      {% endif %}
+                      {% set ns.current_period = [ns.current_time] %}
+                    {% else %}
+                      {# Continue the current period #}
+                      {% set ns.current_period = ns.current_period + [ns.current_time] %}
+                    {% endif %}
+                  {% else %}
+                    {% set ns.current_period = [ns.current_time] %}
+                  {% endif %}
+                  {% set ns.prev_time = ns.current_time %}
+                {% endfor %}
+                {# Add the last period if it exists #}
+                {% if ns.current_period %}
+                  {% set ns.periods = ns.periods + [ns.current_period] %}
+                {% endif %}
+                {% set ns.result = [] %}
+                {% for period in ns.periods %}
+                  {% set start_time = period[0] %}
+                  {% set end_time = period[-1] + timedelta(hours=1,minutes=15) %} {# Adjust end to the next full hour #}
+                  {% set ns.result = ns.result + [{'start': start_time.isoformat(), 'end': end_time.isoformat()}] %}
+                {% endfor %}
+                {{ ns.result }}
