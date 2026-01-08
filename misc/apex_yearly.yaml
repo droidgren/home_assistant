@@ -1,0 +1,74 @@
+type: custom:apexcharts-card
+update_delay: 10s
+update_interval: 15min
+header:
+  show: true
+  title: Årlig Elförbrukning (kWh)
+  show_states: false
+  colorize_states: true
+graph_span: 5y
+span:
+  end: year
+apex_config:
+  tooltip:
+    enabled: false
+  plotOptions:
+    bar:
+      columnWidth: 40
+  legend:
+    show: false
+  xaxis:
+    tooltip:
+      enabled: false
+    labels:
+      offsetX: -20
+    axisTicks:
+      offsetX: -20
+  dataLabels:
+    enabled: true
+    offsetY: -12
+    offsetX: 0
+    background:
+      enabled: true
+      foreColor: "#fff"
+      borderColor: "#000"
+    dropShadow:
+      enabled: true
+  chart:
+    zoom:
+      enabled: false
+    toolbar:
+      show: false
+  yaxis:
+    labels:
+      formatter: |
+        EVAL:function(val) {
+          return (val / 1000).toFixed(0) + 'k';
+        }      
+series:
+  - entity: sensor.arets_elforbrukning_total
+    type: column
+    name: Förbrukning
+    offset: +1y
+    show:
+      datalabels: true
+      legend_value: false
+      in_chart: true
+      in_header: false
+    group_by:
+      func: max
+      duration: 1y
+    statistics:
+      type: state
+      period: month
+      align: end
+    float_precision: 0
+  - entity: input_number.arets_elforbrukning_nuvarande
+    type: column
+    offset: +6mo
+    name: I år
+    unit: " kWh"
+    show:
+      in_chart: true
+      datalabels: true
+    float_precision: 0
