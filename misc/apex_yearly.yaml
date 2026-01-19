@@ -63,10 +63,12 @@ series:
       period: month
       align: end
     float_precision: 0
-  - entity: input_number.arets_elforbrukning_nuvarande
+  - entity: sensor.arets_elforbrukning_total
     type: column
-    offset: +6mo
+    offset: +7mo
     name: I år
+    data_generator: |
+      return [[new Date().getTime(), entity.state]];
     unit: " kWh"
     show:
       in_chart: true
