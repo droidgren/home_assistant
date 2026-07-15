@@ -442,5 +442,3 @@ action:
 
 # mode MUST remain 'single' so wait_for_trigger works safely without aborting runs
 mode: single
-
-```
