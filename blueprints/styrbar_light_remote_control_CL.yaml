@@ -1,17 +1,21 @@
 blueprint:
-  name: Styrbar Remote Control for Lights (2026-07-15)
+  name: Styrbar Remote Control for Lights (2026-07-20) B
   description: |
     Provides integration and control for the IKEA E2001/E2002 Styrbar remote control.
 
     ✅ On/Off, brightness up/down, color temperature control.
     ✅ Use a fixed Temperature when starting light with arrow keys
     ✅ Configurable min/max clamps for color temp and brightness.
-    ✅ Double-click On or Off to run a bonus custom action (e.g. toggle another light)
+    ✅ Optional double-click actions for the On and Off buttons.
     ✅ Works with ZigbeeMQTT 2.0
 
-    ℹ️ Version 2026-07-14
-    ℹ️ Double-click detection needs one or two `input_datetime` helpers - see the
-    "Double-Click Actions" section below.
+    ℹ️ Double-click note: when a double-click action is configured for a button,
+    single presses of that button are delayed by the double-click window so the
+    two can be told apart. Leave a double-click action empty and that button
+    reacts instantly, exactly as before. Pressing any other button on the remote
+    within the window cancels a pending single press.
+
+    ℹ️ Version 2026-07-19
   domain: automation
   input:
     light_entity:
@@ -105,60 +109,40 @@ blueprint:
           max: 100
           step: 1
           unit_of_measurement: "%"
-    double_click_options:
-      name: Double-Click Actions
+    double_click_section:
+      name: Double-Click Actions (Optional)
       icon: mdi:gesture-double-tap
       collapsed: true
       input:
         double_click_window_ms:
-          name: Double-Click Window (ms)
+          name: Double-Click Window
           description: >-
-            Maximum time between two "On" presses (or two "Off" presses) for the
-            second press to count as a double-click.
+            Maximum time between two presses to count as a double-click. This is
+            also the delay added to single presses on buttons that have a
+            double-click action configured.
           default: 400
           selector:
             number:
-              min: 200
+              min: 150
               max: 1000
               step: 50
               unit_of_measurement: "ms"
-        last_on_press_helper:
-          name: On Button Double-Click Helper (optional)
-          description: >-
-            An `input_datetime` helper used to time double-clicks on the On button.
-            Only needed if "Double-Click On Action" below is filled in. Create one
-            under Settings → Devices & Services → Helpers → "Date and/or time",
-            then select it here. Use a helper that is not shared with any other
-            remote/blueprint instance.
-          default: ""
-          selector:
-            entity:
-              domain: input_datetime
         double_click_on_action:
-          name: Double-Click "On" Action
+          name: On Button Double-Click Action
           description: >-
-            Optional. Runs in addition to turning the light on, whenever the On
-            button is pressed twice quickly. For example, toggle another light.
+            Actions to run when the On button is pressed twice within the
+            double-click window, e.g. toggling another light. Leave empty to
+            disable double-click detection for the On button (single presses
+            stay instant).
           default: []
           selector:
             action: {}
-        last_off_press_helper:
-          name: Off Button Double-Click Helper (optional)
-          description: >-
-            An `input_datetime` helper used to time double-clicks on the Off button.
-            Only needed if "Double-Click Off Action" below is filled in. Create one
-            under Settings → Devices & Services → Helpers → "Date and/or time",
-            then select it here. Use a helper that is not shared with any other
-            remote/blueprint instance.
-          default: ""
-          selector:
-            entity:
-              domain: input_datetime
         double_click_off_action:
-          name: Double-Click "Off" Action
+          name: Off Button Double-Click Action
           description: >-
-            Optional. Runs in addition to turning the light off, whenever the Off
-            button is pressed twice quickly. For example, toggle another light.
+            Actions to run when the Off button is pressed twice within the
+            double-click window. Leave empty to disable double-click detection
+            for the Off button (single presses stay instant).
           default: []
           selector:
             action: {}
@@ -240,8 +224,8 @@ variables:
   min_brightness: !input min_brightness
   max_brightness: !input max_brightness
   double_click_window_ms: !input double_click_window_ms
-  last_on_press_helper: !input last_on_press_helper
-  last_off_press_helper: !input last_off_press_helper
+  double_click_on_action: !input double_click_on_action
+  double_click_off_action: !input double_click_off_action
 
 action:
   - choose:
@@ -249,43 +233,51 @@ action:
           - condition: trigger
             id: light_on
         sequence:
-          - service: light.turn_on
-            target:
-              entity_id: !input light_entity
-          - if:
-              - condition: template
-                value_template: "{{ last_on_press_helper not in ('', none) and (as_timestamp(now()) - as_timestamp(states(last_on_press_helper), 0)) < (double_click_window_ms | float / 1000) }}"
-            then: !input double_click_on_action
-          - if:
-              - condition: template
-                value_template: "{{ last_on_press_helper not in ('', none) }}"
+          - if: "{{ double_click_on_action | length > 0 }}"
             then:
-              - service: input_datetime.set_datetime
+              # Double-click detection enabled: decide if this press is the
+              # second one of a pair. `this.attributes.last_triggered` still
+              # holds the PREVIOUS trigger time at this point, and mode:restart
+              # means a second press kills the pending single-press run below.
+              - if: >-
+                  {{ (as_timestamp(now()) -
+                      as_timestamp(this.attributes.last_triggered, default=0)) * 1000
+                     < double_click_window_ms }}
+                then: !input double_click_on_action
+                else:
+                  # First press: wait out the window. If a second press arrives,
+                  # this run is restarted and the turn_on below never fires.
+                  - delay:
+                      milliseconds: !input double_click_window_ms
+                  - service: light.turn_on
+                    target:
+                      entity_id: !input light_entity
+            else:
+              - service: light.turn_on
                 target:
-                  entity_id: "{{ last_on_press_helper }}"
-                data:
-                  timestamp: "{{ now().timestamp() }}"
+                  entity_id: !input light_entity
 
       - conditions:
           - condition: trigger
             id: light_off
         sequence:
-          - service: light.turn_off
-            target:
-              entity_id: !input light_entity
-          - if:
-              - condition: template
-                value_template: "{{ last_off_press_helper not in ('', none) and (as_timestamp(now()) - as_timestamp(states(last_off_press_helper), 0)) < (double_click_window_ms | float / 1000) }}"
-            then: !input double_click_off_action
-          - if:
-              - condition: template
-                value_template: "{{ last_off_press_helper not in ('', none) }}"
+          - if: "{{ double_click_off_action | length > 0 }}"
             then:
-              - service: input_datetime.set_datetime
+              - if: >-
+                  {{ (as_timestamp(now()) -
+                      as_timestamp(this.attributes.last_triggered, default=0)) * 1000
+                     < double_click_window_ms }}
+                then: !input double_click_off_action
+                else:
+                  - delay:
+                      milliseconds: !input double_click_window_ms
+                  - service: light.turn_off
+                    target:
+                      entity_id: !input light_entity
+            else:
+              - service: light.turn_off
                 target:
-                  entity_id: "{{ last_off_press_helper }}"
-                data:
-                  timestamp: "{{ now().timestamp() }}"
+                  entity_id: !input light_entity
 
       - conditions:
           - condition: trigger
