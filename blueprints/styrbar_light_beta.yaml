@@ -1,13 +1,17 @@
 blueprint:
-  name: Styrbar Remote Control for Lights (G2)
+  name: Styrbar Remote Control for Lights (2026-07-20) A
   description: |
     Provides integration and control for the IKEA E2001/E2002 Styrbar remote control.
 
     ✅ On/Off, brightness up/down, color temperature control.
     ✅ Use a fixed Temperature when starting light with arrow keys
     ✅ Configurable min/max clamps for color temp and brightness.
+    ✅ Double-click On or Off to run a bonus custom action (e.g. toggle another light)
     ✅ Works with ZigbeeMQTT 2.0
-    ✅ Instant Response Single Clicks + Double Click Actions.
+
+    ℹ️ Version 2026-07-14
+    ℹ️ Double-click detection needs one or two `input_datetime` helpers - see the
+    "Double-Click Actions" section below.
   domain: automation
   input:
     light_entity:
@@ -101,28 +105,63 @@ blueprint:
           max: 100
           step: 1
           unit_of_measurement: "%"
-    double_click_timeout:
-      name: Double Click Timeout (ms)
-      description: "Time to wait for a double click. (Recommendation: 400-800ms). Set to 0 to disable."
-      default: 500
-      selector:
-        number:
-          min: 0
-          max: 2000
-          step: 50
-          unit_of_measurement: "ms"
-    double_click_on_action:
-      name: Double Click ON Action
-      description: "Action to run when the top (ON) button is double-clicked (e.g., toggle another light)."
-      default: []
-      selector:
-        action: {}
-    double_click_off_action:
-      name: Double Click OFF Action
-      description: "Action to run when the bottom (OFF) button is double-clicked."
-      default: []
-      selector:
-        action: {}
+    double_click_options:
+      name: Double-Click Actions
+      icon: mdi:gesture-double-tap
+      collapsed: true
+      input:
+        double_click_window_ms:
+          name: Double-Click Window (ms)
+          description: >-
+            Maximum time between two "On" presses (or two "Off" presses) for the
+            second press to count as a double-click.
+          default: 400
+          selector:
+            number:
+              min: 200
+              max: 1000
+              step: 50
+              unit_of_measurement: "ms"
+        last_on_press_helper:
+          name: On Button Double-Click Helper (optional)
+          description: >-
+            An `input_datetime` helper used to time double-clicks on the On button.
+            Only needed if "Double-Click On Action" below is filled in. Create one
+            under Settings → Devices & Services → Helpers → "Date and/or time",
+            then select it here. Use a helper that is not shared with any other
+            remote/blueprint instance.
+          default: ""
+          selector:
+            entity:
+              domain: input_datetime
+        double_click_on_action:
+          name: Double-Click "On" Action
+          description: >-
+            Optional. Runs in addition to turning the light on, whenever the On
+            button is pressed twice quickly. For example, toggle another light.
+          default: []
+          selector:
+            action: {}
+        last_off_press_helper:
+          name: Off Button Double-Click Helper (optional)
+          description: >-
+            An `input_datetime` helper used to time double-clicks on the Off button.
+            Only needed if "Double-Click Off Action" below is filled in. Create one
+            under Settings → Devices & Services → Helpers → "Date and/or time",
+            then select it here. Use a helper that is not shared with any other
+            remote/blueprint instance.
+          default: ""
+          selector:
+            entity:
+              domain: input_datetime
+        double_click_off_action:
+          name: Double-Click "Off" Action
+          description: >-
+            Optional. Runs in addition to turning the light off, whenever the Off
+            button is pressed twice quickly. For example, toggle another light.
+          default: []
+          selector:
+            action: {}
 
 trigger:
   - platform: device
@@ -141,55 +180,55 @@ trigger:
     device_id: !input mqtt_device
     domain: mqtt
     type: action
-    subtype: "arrow_left_click"
+    subtype: arrow_left_click
     id: change_color_left
   - platform: device
     device_id: !input mqtt_device
     domain: mqtt
     type: action
-    subtype: "arrow_left_hold"
+    subtype: arrow_left_hold
     id: change_color_left_hold
   - platform: device
     device_id: !input mqtt_device
     domain: mqtt
     type: action
-    subtype: "arrow_left_release"
+    subtype: arrow_left_release
     id: change_color_left_release
   - platform: device
     device_id: !input mqtt_device
     domain: mqtt
     type: action
-    subtype: "arrow_right_click"
+    subtype: arrow_right_click
     id: change_color_right
   - platform: device
     device_id: !input mqtt_device
     domain: mqtt
     type: action
-    subtype: "arrow_right_hold"
+    subtype: arrow_right_hold
     id: change_color_right_hold
   - platform: device
     device_id: !input mqtt_device
     domain: mqtt
     type: action
-    subtype: "arrow_right_release"
+    subtype: arrow_right_release
     id: change_color_right_release
   - platform: device
     device_id: !input mqtt_device
     domain: mqtt
     type: action
-    subtype: "brightness_move_down"
+    subtype: brightness_move_down
     id: dim_down
   - platform: device
     device_id: !input mqtt_device
     domain: mqtt
     type: action
-    subtype: "brightness_move_up"
+    subtype: brightness_move_up
     id: dim_up
   - platform: device
     device_id: !input mqtt_device
     domain: mqtt
     type: action
-    subtype: "brightness_stop"
+    subtype: brightness_stop
     id: dim_stop
 
 variables:
@@ -200,77 +239,54 @@ variables:
   max_color_temp: !input max_color_temp
   min_brightness: !input min_brightness
   max_brightness: !input max_brightness
-  double_click_timeout: !input double_click_timeout
+  double_click_window_ms: !input double_click_window_ms
+  last_on_press_helper: !input last_on_press_helper
+  last_off_press_helper: !input last_off_press_helper
 
 action:
   - choose:
-      # --- ON BUTTON (Single & Double Click) ---
       - conditions:
           - condition: trigger
             id: light_on
         sequence:
-          - parallel:
-              # Branch 1: Execute single click action immediately
-              - service: light.turn_on
+          - service: light.turn_on
+            target:
+              entity_id: !input light_entity
+          - if:
+              - condition: template
+                value_template: "{{ last_on_press_helper not in ('', none) and (as_timestamp(now()) - as_timestamp(states(last_on_press_helper), 0)) < (double_click_window_ms | float / 1000) }}"
+            then: !input double_click_on_action
+          - if:
+              - condition: template
+                value_template: "{{ last_on_press_helper not in ('', none) }}"
+            then:
+              - service: input_datetime.set_datetime
                 target:
-                  entity_id: !input light_entity
-              # Branch 2: Concurrently wait for a potential double click (avoids light transition blocking)
-              - sequence:
-                  - choose:
-                      - conditions:
-                          - condition: template
-                            value_template: "{{ double_click_timeout > 0 }}"
-                        sequence:
-                          - wait_for_trigger:
-                              - platform: device
-                                device_id: !input mqtt_device
-                                domain: mqtt
-                                type: action
-                                subtype: >-
-                                  on
-                            timeout:
-                              milliseconds: !input double_click_timeout
-                            continue_on_timeout: true
-                          - choose:
-                              - conditions:
-                                  - condition: template
-                                    value_template: "{{ wait.trigger is not none }}"
-                                sequence: !input double_click_on_action
+                  entity_id: "{{ last_on_press_helper }}"
+                data:
+                  timestamp: "{{ now().timestamp() }}"
 
-      # --- OFF BUTTON (Single & Double Click) ---
       - conditions:
           - condition: trigger
             id: light_off
         sequence:
-          - parallel:
-              # Branch 1: Execute single click action immediately
-              - service: light.turn_off
+          - service: light.turn_off
+            target:
+              entity_id: !input light_entity
+          - if:
+              - condition: template
+                value_template: "{{ last_off_press_helper not in ('', none) and (as_timestamp(now()) - as_timestamp(states(last_off_press_helper), 0)) < (double_click_window_ms | float / 1000) }}"
+            then: !input double_click_off_action
+          - if:
+              - condition: template
+                value_template: "{{ last_off_press_helper not in ('', none) }}"
+            then:
+              - service: input_datetime.set_datetime
                 target:
-                  entity_id: !input light_entity
-              # Branch 2: Concurrently wait for a potential double click
-              - sequence:
-                  - choose:
-                      - conditions:
-                          - condition: template
-                            value_template: "{{ double_click_timeout > 0 }}"
-                        sequence:
-                          - wait_for_trigger:
-                              - platform: device
-                                device_id: !input mqtt_device
-                                domain: mqtt
-                                type: action
-                                subtype: >-
-                                  off
-                            timeout:
-                              milliseconds: !input double_click_timeout
-                            continue_on_timeout: true
-                          - choose:
-                              - conditions:
-                                  - condition: template
-                                    value_template: "{{ wait.trigger is not none }}"
-                                sequence: !input double_click_off_action
+                  entity_id: "{{ last_off_press_helper }}"
+                data:
+                  timestamp: "{{ now().timestamp() }}"
 
-      # --- LEFT CLICK ---
       - conditions:
           - condition: trigger
             id: change_color_left
@@ -290,7 +306,6 @@ action:
                   ] | max
                 }}
 
-      # --- LEFT HOLD ---
       - conditions:
           - condition: trigger
             id: change_color_left_hold
@@ -311,19 +326,12 @@ action:
                           min_color_temp
                         ] | max
                       }}
-                - wait_for_trigger:
-                    - platform: device
-                      device_id: !input mqtt_device
-                      domain: mqtt
-                      type: action
-                      subtype: "arrow_left_release"
-                  timeout:
+                - delay:
                     milliseconds: !input delay_ms
               until:
-                - condition: template
-                  value_template: "{{ wait.trigger is not none }}"
+                - condition: trigger
+                  id: change_color_left_release
 
-      # --- RIGHT CLICK ---
       - conditions:
           - condition: trigger
             id: change_color_right
@@ -343,7 +351,6 @@ action:
                   ] | max
                 }}
 
-      # --- RIGHT HOLD ---
       - conditions:
           - condition: trigger
             id: change_color_right_hold
@@ -364,19 +371,12 @@ action:
                           min_color_temp
                         ] | max
                       }}
-                - wait_for_trigger:
-                    - platform: device
-                      device_id: !input mqtt_device
-                      domain: mqtt
-                      type: action
-                      subtype: "arrow_right_release"
-                  timeout:
+                - delay:
                     milliseconds: !input delay_ms
               until:
-                - condition: template
-                  value_template: "{{ wait.trigger is not none }}"
+                - condition: trigger
+                  id: change_color_right_release
 
-      # --- DIM DOWN ---
       - conditions:
           - condition: trigger
             id: dim_down
@@ -398,19 +398,12 @@ action:
                         ] | max
                       }}
                     transition: !input transition_seconds
-                - wait_for_trigger:
-                    - platform: device
-                      device_id: !input mqtt_device
-                      domain: mqtt
-                      type: action
-                      subtype: "brightness_stop"
-                  timeout:
+                - delay:
                     milliseconds: !input delay_ms
               until:
-                - condition: template
-                  value_template: "{{ wait.trigger is not none }}"
+                - condition: trigger
+                  id: dim_stop
 
-      # --- DIM UP ---
       - conditions:
           - condition: trigger
             id: dim_up
@@ -432,17 +425,10 @@ action:
                         ] | max
                       }}
                     transition: !input transition_seconds
-                - wait_for_trigger:
-                    - platform: device
-                      device_id: !input mqtt_device
-                      domain: mqtt
-                      type: action
-                      subtype: "brightness_stop"
-                  timeout:
+                - delay:
                     milliseconds: !input delay_ms
               until:
-                - condition: template
-                  value_template: "{{ wait.trigger is not none }}"
+                - condition: trigger
+                  id: dim_stop
 
-# mode MUST remain 'single' so wait_for_trigger works safely without aborting runs
-mode: single
+mode: restart
